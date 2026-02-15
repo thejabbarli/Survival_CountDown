@@ -6,8 +6,8 @@ video:
 
 # Simulation settings
 simulation:
-  entity_count: 4
-  elimination_interval: 30
+  entity_count: 100
+  elimination_interval: 15
   sudden_death:
     enabled: true
     threshold_1: 10
@@ -17,7 +17,7 @@ simulation:
 
 # Visual settings
 visuals:
-  background_color: "#1a1a2e"
+  background_color: "#000000"
   cell_padding: 10
   show_counter: true
   counter_position: top

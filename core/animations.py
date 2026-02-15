@@ -1,7 +1,8 @@
 """Elimination animation strategies."""
 
 from abc import ABC, abstractmethod
-from PIL import ImageDraw
+from typing import Optional
+from PIL import Image, ImageDraw
 
 from .entity import Entity
 from .layout import CellPosition
@@ -10,40 +11,29 @@ from .utils import hex_to_grayscale
 
 
 class EliminationAnimation(ABC):
-    """Base class for elimination animations."""
-
     @abstractmethod
     def draw(
-            self,
-            target: ImageDraw.Draw,
-            entity: Entity,
-            position: CellPosition,
-            progress: float
+        self,
+        target: ImageDraw.Draw,
+        entity: Entity,
+        position: CellPosition,
+        progress: float,
+        image_cache: Optional['ImageCache'] = None
     ) -> None:
-        """
-        Draw elimination animation.
-
-        Args:
-            target: PIL ImageDraw object
-            entity: Entity being eliminated
-            position: Cell position and size
-            progress: Animation progress (0.0 to 1.0)
-        """
         pass
 
 
 class ShrinkWithXAnimation(EliminationAnimation):
-    """Shrink and show red X animation."""
-
     def __init__(self, config: AnimationConfig):
         self.config = config
 
     def draw(
-            self,
-            target: ImageDraw.Draw,
-            entity: Entity,
-            position: CellPosition,
-            progress: float
+        self,
+        target: ImageDraw.Draw,
+        entity: Entity,
+        position: CellPosition,
+        progress: float,
+        image_cache: Optional['ImageCache'] = None
     ) -> None:
         scale = 1 - progress
         new_size = int(position.size * scale)
@@ -54,63 +44,48 @@ class ShrinkWithXAnimation(EliminationAnimation):
         x = position.x + (position.size - new_size) // 2
         y = position.y + (position.size - new_size) // 2
 
-        # Gray rectangle
+        # Try grayscale image
+        if entity.image_path is not None and image_cache is not None:
+            gray_img = image_cache.get_grayscale(entity.image_path, position.size)
+            if gray_img is not None:
+                if new_size != position.size:
+                    resized = gray_img.resize((new_size, new_size), Image.Resampling.LANCZOS)
+                else:
+                    resized = gray_img
+                canvas = target._image
+                canvas.paste(resized, (x, y), resized)
+                self._draw_x(target, x, y, new_size)
+                return
+
+        # Fallback: gray rectangle
         gray = hex_to_grayscale(entity.color)
         target.rectangle([x, y, x + new_size, y + new_size], fill=gray)
+        self._draw_x(target, x, y, new_size)
 
-        # Red X
-        line_width = max(2, int(new_size * self.config.elimination_x_width_ratio))
-        padding = int(new_size * self.config.elimination_x_padding_ratio)
-
-        target.line(
-            [(x + padding, y + padding), (x + new_size - padding, y + new_size - padding)],
-            fill=self.config.elimination_x_color,
-            width=line_width
-        )
-        target.line(
-            [(x + new_size - padding, y + padding), (x + padding, y + new_size - padding)],
-            fill=self.config.elimination_x_color,
-            width=line_width
-        )
+    def _draw_x(self, target: ImageDraw.Draw, x: int, y: int, size: int) -> None:
+        line_width = max(2, int(size * self.config.elimination_x_width_ratio))
+        padding = int(size * self.config.elimination_x_padding_ratio)
+        target.line([(x + padding, y + padding), (x + size - padding, y + size - padding)],
+                    fill=self.config.elimination_x_color, width=line_width)
+        target.line([(x + size - padding, y + padding), (x + padding, y + size - padding)],
+                    fill=self.config.elimination_x_color, width=line_width)
 
 
 class FadeOutAnimation(EliminationAnimation):
-    """Fade to background animation (alternative)."""
-
     def __init__(self, background_color: str = "#1a1a2e"):
         self.background_color = background_color
 
-    def draw(
-            self,
-            target: ImageDraw.Draw,
-            entity: Entity,
-            position: CellPosition,
-            progress: float
-    ) -> None:
-        # Blend entity color toward background
-        # For simplicity, just reduce size without X
+    def draw(self, target, entity, position, progress, image_cache=None):
         scale = 1 - progress
         new_size = int(position.size * scale)
-
         if new_size < 4:
             return
-
         x = position.x + (position.size - new_size) // 2
         y = position.y + (position.size - new_size) // 2
-
         gray = hex_to_grayscale(entity.color, darken=0.3 + (0.5 * progress))
         target.rectangle([x, y, x + new_size, y + new_size], fill=gray)
 
 
 class InstantRemoveAnimation(EliminationAnimation):
-    """Instant removal, no animation."""
-
-    def draw(
-            self,
-            target: ImageDraw.Draw,
-            entity: Entity,
-            position: CellPosition,
-            progress: float
-    ) -> None:
-        # Draw nothing - instant removal
+    def draw(self, target, entity, position, progress, image_cache=None):
         pass

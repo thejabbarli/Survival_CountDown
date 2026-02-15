@@ -1,12 +1,13 @@
 """Entity drawer - displays a single entity."""
 
-from PIL import ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 
 from ..entity import Entity
 from ..layout import CellPosition
 from ..config import EntityDisplayConfig
 from ..utils import get_contrast_color
 from ..animations import EliminationAnimation
+from ..image_cache import get_image_cache
 
 
 class EntityDrawer:
@@ -21,6 +22,7 @@ class EntityDrawer:
         self.entity_config = entity_config
         self.font = font
         self.elimination_animation = elimination_animation
+        self.image_cache = get_image_cache()
 
     def draw(
         self,
@@ -30,26 +32,17 @@ class EntityDrawer:
         state: str,
         progress: float = 0.0
     ) -> None:
-        """
-        Draw entity based on its state.
-
-        Args:
-            target: PIL ImageDraw object to draw on
-            entity: The entity to draw
-            position: Cell position and size
-            state: "alive", "eliminating", or "gone"
-            progress: Animation progress (0.0 to 1.0) for eliminating state
-        """
         if state == "gone":
             return
 
         if state == "eliminating":
-            self.elimination_animation.draw(target, entity, position, progress)
+            self.elimination_animation.draw(
+                target, entity, position, progress, self.image_cache
+            )
         else:
             self._draw_alive(target, entity, position)
 
     def _truncate_name(self, name: str) -> str:
-        """Truncate name if too long."""
         max_len = self.entity_config.name_max_length
         if len(name) > max_len:
             return name[:max_len - 1] + "…"
@@ -61,20 +54,25 @@ class EntityDrawer:
         entity: Entity,
         pos: CellPosition
     ) -> None:
-        """Draw alive entity as colored rectangle with name."""
+        # Try image first
+        if entity.image_path is not None:
+            img = self.image_cache.get(entity.image_path, pos.size)
+            if img is not None:
+                canvas = target._image
+                canvas.paste(img, (pos.x, pos.y), img)
+                return
+
+        # Fallback: colored rectangle with name
         target.rectangle(
             [pos.x, pos.y, pos.x + pos.size, pos.y + pos.size],
             fill=entity.color
         )
 
         name = self._truncate_name(entity.name)
-
         bbox = target.textbbox((0, 0), name, font=self.font)
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
-
         text_x = pos.x + (pos.size - text_width) // 2
         text_y = pos.y + (pos.size - text_height) // 2
-
         text_color = get_contrast_color(entity.color)
         target.text((text_x, text_y), name, fill=text_color, font=self.font)

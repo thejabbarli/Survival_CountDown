@@ -1,28 +1,582 @@
 {
   "name": "Countries",
-  "description": "Flags of world countries",
-  "author": "Sample",
+  "description": "World flags",
   "entities": [
-    {"id": "usa", "name": "United States", "color": "#3C3B6E"},
-    {"id": "brazil", "name": "Brazil", "color": "#009739"},
-    {"id": "germany", "name": "Germany", "color": "#FFCC00"},
-    {"id": "japan", "name": "Japan", "color": "#BC002D"},
-    {"id": "france", "name": "France", "color": "#0055A4"},
-    {"id": "italy", "name": "Italy", "color": "#009246"},
-    {"id": "uk", "name": "United Kingdom", "color": "#012169"},
-    {"id": "canada", "name": "Canada", "color": "#FF0000"},
-    {"id": "australia", "name": "Australia", "color": "#00008B"},
-    {"id": "india", "name": "India", "color": "#FF9933"},
-    {"id": "china", "name": "China", "color": "#DE2910"},
-    {"id": "russia", "name": "Russia", "color": "#0039A6"},
-    {"id": "mexico", "name": "Mexico", "color": "#006847"},
-    {"id": "spain", "name": "Spain", "color": "#AA151B"},
-    {"id": "argentina", "name": "Argentina", "color": "#74ACDF"},
-    {"id": "south_korea", "name": "South Korea", "color": "#003478"}
-  ],
-  "groups": {
-    "europe": ["germany", "france", "italy", "uk", "spain", "russia"],
-    "americas": ["usa", "brazil", "canada", "mexico", "argentina"],
-    "asia": ["japan", "india", "china", "south_korea"]
-  }
+    {
+      "id": "us",
+      "name": "United States",
+      "image": "us.png",
+      "color": "#333333"
+    },
+    {
+      "id": "br",
+      "name": "Brazil",
+      "image": "br.png",
+      "color": "#333333"
+    },
+    {
+      "id": "de",
+      "name": "Germany",
+      "image": "de.png",
+      "color": "#333333"
+    },
+    {
+      "id": "jp",
+      "name": "Japan",
+      "image": "jp.png",
+      "color": "#333333"
+    },
+    {
+      "id": "fr",
+      "name": "France",
+      "image": "fr.png",
+      "color": "#333333"
+    },
+    {
+      "id": "it",
+      "name": "Italy",
+      "image": "it.png",
+      "color": "#333333"
+    },
+    {
+      "id": "gb",
+      "name": "United Kingdom",
+      "image": "gb.png",
+      "color": "#333333"
+    },
+    {
+      "id": "ca",
+      "name": "Canada",
+      "image": "ca.png",
+      "color": "#333333"
+    },
+    {
+      "id": "au",
+      "name": "Australia",
+      "image": "au.png",
+      "color": "#333333"
+    },
+    {
+      "id": "in",
+      "name": "India",
+      "image": "in.png",
+      "color": "#333333"
+    },
+    {
+      "id": "cn",
+      "name": "China",
+      "image": "cn.png",
+      "color": "#333333"
+    },
+    {
+      "id": "ru",
+      "name": "Russia",
+      "image": "ru.png",
+      "color": "#333333"
+    },
+    {
+      "id": "mx",
+      "name": "Mexico",
+      "image": "mx.png",
+      "color": "#333333"
+    },
+    {
+      "id": "es",
+      "name": "Spain",
+      "image": "es.png",
+      "color": "#333333"
+    },
+    {
+      "id": "ar",
+      "name": "Argentina",
+      "image": "ar.png",
+      "color": "#333333"
+    },
+    {
+      "id": "kr",
+      "name": "South Korea",
+      "image": "kr.png",
+      "color": "#333333"
+    },
+    {
+      "id": "nl",
+      "name": "Netherlands",
+      "image": "nl.png",
+      "color": "#333333"
+    },
+    {
+      "id": "be",
+      "name": "Belgium",
+      "image": "be.png",
+      "color": "#333333"
+    },
+    {
+      "id": "se",
+      "name": "Sweden",
+      "image": "se.png",
+      "color": "#333333"
+    },
+    {
+      "id": "no",
+      "name": "Norway",
+      "image": "no.png",
+      "color": "#333333"
+    },
+    {
+      "id": "dk",
+      "name": "Denmark",
+      "image": "dk.png",
+      "color": "#333333"
+    },
+    {
+      "id": "fi",
+      "name": "Finland",
+      "image": "fi.png",
+      "color": "#333333"
+    },
+    {
+      "id": "pl",
+      "name": "Poland",
+      "image": "pl.png",
+      "color": "#333333"
+    },
+    {
+      "id": "pt",
+      "name": "Portugal",
+      "image": "pt.png",
+      "color": "#333333"
+    },
+    {
+      "id": "at",
+      "name": "Austria",
+      "image": "at.png",
+      "color": "#333333"
+    },
+    {
+      "id": "ch",
+      "name": "Switzerland",
+      "image": "ch.png",
+      "color": "#333333"
+    },
+    {
+      "id": "ie",
+      "name": "Ireland",
+      "image": "ie.png",
+      "color": "#333333"
+    },
+    {
+      "id": "nz",
+      "name": "New Zealand",
+      "image": "nz.png",
+      "color": "#333333"
+    },
+    {
+      "id": "za",
+      "name": "South Africa",
+      "image": "za.png",
+      "color": "#333333"
+    },
+    {
+      "id": "eg",
+      "name": "Egypt",
+      "image": "eg.png",
+      "color": "#333333"
+    },
+    {
+      "id": "ng",
+      "name": "Nigeria",
+      "image": "ng.png",
+      "color": "#333333"
+    },
+    {
+      "id": "ke",
+      "name": "Kenya",
+      "image": "ke.png",
+      "color": "#333333"
+    },
+    {
+      "id": "ma",
+      "name": "Morocco",
+      "image": "ma.png",
+      "color": "#333333"
+    },
+    {
+      "id": "gh",
+      "name": "Ghana",
+      "image": "gh.png",
+      "color": "#333333"
+    },
+    {
+      "id": "tz",
+      "name": "Tanzania",
+      "image": "tz.png",
+      "color": "#333333"
+    },
+    {
+      "id": "et",
+      "name": "Ethiopia",
+      "image": "et.png",
+      "color": "#333333"
+    },
+    {
+      "id": "tr",
+      "name": "Turkey",
+      "image": "tr.png",
+      "color": "#333333"
+    },
+    {
+      "id": "sa",
+      "name": "Saudi Arabia",
+      "image": "sa.png",
+      "color": "#333333"
+    },
+    {
+      "id": "ae",
+      "name": "UAE",
+      "image": "ae.png",
+      "color": "#333333"
+    },
+    {
+      "id": "il",
+      "name": "Israel",
+      "image": "il.png",
+      "color": "#333333"
+    },
+    {
+      "id": "ir",
+      "name": "Iran",
+      "image": "ir.png",
+      "color": "#333333"
+    },
+    {
+      "id": "pk",
+      "name": "Pakistan",
+      "image": "pk.png",
+      "color": "#333333"
+    },
+    {
+      "id": "bd",
+      "name": "Bangladesh",
+      "image": "bd.png",
+      "color": "#333333"
+    },
+    {
+      "id": "id",
+      "name": "Indonesia",
+      "image": "id.png",
+      "color": "#333333"
+    },
+    {
+      "id": "th",
+      "name": "Thailand",
+      "image": "th.png",
+      "color": "#333333"
+    },
+    {
+      "id": "vn",
+      "name": "Vietnam",
+      "image": "vn.png",
+      "color": "#333333"
+    },
+    {
+      "id": "ph",
+      "name": "Philippines",
+      "image": "ph.png",
+      "color": "#333333"
+    },
+    {
+      "id": "my",
+      "name": "Malaysia",
+      "image": "my.png",
+      "color": "#333333"
+    },
+    {
+      "id": "sg",
+      "name": "Singapore",
+      "image": "sg.png",
+      "color": "#333333"
+    },
+    {
+      "id": "tw",
+      "name": "Taiwan",
+      "image": "tw.png",
+      "color": "#333333"
+    },
+    {
+      "id": "hk",
+      "name": "Hong Kong",
+      "image": "hk.png",
+      "color": "#333333"
+    },
+    {
+      "id": "gr",
+      "name": "Greece",
+      "image": "gr.png",
+      "color": "#333333"
+    },
+    {
+      "id": "cz",
+      "name": "Czech Republic",
+      "image": "cz.png",
+      "color": "#333333"
+    },
+    {
+      "id": "hu",
+      "name": "Hungary",
+      "image": "hu.png",
+      "color": "#333333"
+    },
+    {
+      "id": "ro",
+      "name": "Romania",
+      "image": "ro.png",
+      "color": "#333333"
+    },
+    {
+      "id": "ua",
+      "name": "Ukraine",
+      "image": "ua.png",
+      "color": "#333333"
+    },
+    {
+      "id": "co",
+      "name": "Colombia",
+      "image": "co.png",
+      "color": "#333333"
+    },
+    {
+      "id": "cl",
+      "name": "Chile",
+      "image": "cl.png",
+      "color": "#333333"
+    },
+    {
+      "id": "pe",
+      "name": "Peru",
+      "image": "pe.png",
+      "color": "#333333"
+    },
+    {
+      "id": "ve",
+      "name": "Venezuela",
+      "image": "ve.png",
+      "color": "#333333"
+    },
+    {
+      "id": "ec",
+      "name": "Ecuador",
+      "image": "ec.png",
+      "color": "#333333"
+    },
+    {
+      "id": "cu",
+      "name": "Cuba",
+      "image": "cu.png",
+      "color": "#333333"
+    },
+    {
+      "id": "pa",
+      "name": "Panama",
+      "image": "pa.png",
+      "color": "#333333"
+    },
+    {
+      "id": "cr",
+      "name": "Costa Rica",
+      "image": "cr.png",
+      "color": "#333333"
+    },
+    {
+      "id": "gt",
+      "name": "Guatemala",
+      "image": "gt.png",
+      "color": "#333333"
+    },
+    {
+      "id": "uy",
+      "name": "Uruguay",
+      "image": "uy.png",
+      "color": "#333333"
+    },
+    {
+      "id": "py",
+      "name": "Paraguay",
+      "image": "py.png",
+      "color": "#333333"
+    },
+    {
+      "id": "bo",
+      "name": "Bolivia",
+      "image": "bo.png",
+      "color": "#333333"
+    },
+    {
+      "id": "do",
+      "name": "Dominican Republic",
+      "image": "do.png",
+      "color": "#333333"
+    },
+    {
+      "id": "jm",
+      "name": "Jamaica",
+      "image": "jm.png",
+      "color": "#333333"
+    },
+    {
+      "id": "ht",
+      "name": "Haiti",
+      "image": "ht.png",
+      "color": "#333333"
+    },
+    {
+      "id": "pr",
+      "name": "Puerto Rico",
+      "image": "pr.png",
+      "color": "#333333"
+    },
+    {
+      "id": "is",
+      "name": "Iceland",
+      "image": "is.png",
+      "color": "#333333"
+    },
+    {
+      "id": "lu",
+      "name": "Luxembourg",
+      "image": "lu.png",
+      "color": "#333333"
+    },
+    {
+      "id": "mt",
+      "name": "Malta",
+      "image": "mt.png",
+      "color": "#333333"
+    },
+    {
+      "id": "cy",
+      "name": "Cyprus",
+      "image": "cy.png",
+      "color": "#333333"
+    },
+    {
+      "id": "ee",
+      "name": "Estonia",
+      "image": "ee.png",
+      "color": "#333333"
+    },
+    {
+      "id": "lv",
+      "name": "Latvia",
+      "image": "lv.png",
+      "color": "#333333"
+    },
+    {
+      "id": "lt",
+      "name": "Lithuania",
+      "image": "lt.png",
+      "color": "#333333"
+    },
+    {
+      "id": "si",
+      "name": "Slovenia",
+      "image": "si.png",
+      "color": "#333333"
+    },
+    {
+      "id": "hr",
+      "name": "Croatia",
+      "image": "hr.png",
+      "color": "#333333"
+    },
+    {
+      "id": "rs",
+      "name": "Serbia",
+      "image": "rs.png",
+      "color": "#333333"
+    },
+    {
+      "id": "bg",
+      "name": "Bulgaria",
+      "image": "bg.png",
+      "color": "#333333"
+    },
+    {
+      "id": "sk",
+      "name": "Slovakia",
+      "image": "sk.png",
+      "color": "#333333"
+    },
+    {
+      "id": "np",
+      "name": "Nepal",
+      "image": "np.png",
+      "color": "#333333"
+    },
+    {
+      "id": "lk",
+      "name": "Sri Lanka",
+      "image": "lk.png",
+      "color": "#333333"
+    },
+    {
+      "id": "mm",
+      "name": "Myanmar",
+      "image": "mm.png",
+      "color": "#333333"
+    },
+    {
+      "id": "kh",
+      "name": "Cambodia",
+      "image": "kh.png",
+      "color": "#333333"
+    },
+    {
+      "id": "qa",
+      "name": "Qatar",
+      "image": "qa.png",
+      "color": "#333333"
+    },
+    {
+      "id": "kw",
+      "name": "Kuwait",
+      "image": "kw.png",
+      "color": "#333333"
+    },
+    {
+      "id": "om",
+      "name": "Oman",
+      "image": "om.png",
+      "color": "#333333"
+    },
+    {
+      "id": "jo",
+      "name": "Jordan",
+      "image": "jo.png",
+      "color": "#333333"
+    },
+    {
+      "id": "lb",
+      "name": "Lebanon",
+      "image": "lb.png",
+      "color": "#333333"
+    },
+    {
+      "id": "iq",
+      "name": "Iraq",
+      "image": "iq.png",
+      "color": "#333333"
+    },
+    {
+      "id": "af",
+      "name": "Afghanistan",
+      "image": "af.png",
+      "color": "#333333"
+    },
+    {
+      "id": "dz",
+      "name": "Algeria",
+      "image": "dz.png",
+      "color": "#333333"
+    }
+  ]
 }

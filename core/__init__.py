@@ -25,3 +25,4 @@ from .drawers import EntityDrawer, CounterDrawer, WinnerDrawer
 from .renderer import Renderer, GameFrameRenderer, WinnerFrameRenderer, RendererFactory
 from .audio import AudioBuilder, SoundLoader
 from .exporter import Exporter
+from .image_cache import ImageCache, get_image_cache
