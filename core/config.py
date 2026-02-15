@@ -11,17 +11,26 @@ class CanvasConfig:
     height: int = 1920
     background_color: str = "#1a1a2e"
 
-    # Custom background image
     background_image: str = None
 
-    # Gradient
+    # Static gradient
     gradient_enabled: bool = True
     gradient_top: str = "#1a1a2e"
     gradient_bottom: str = "#0f0f1a"
 
+    # Animated gradient (overrides static if enabled)
+    animated_gradient: bool = False
+    gradient_top_end: str = "#2e1a2e"  # Top color shifts to this
+    gradient_bottom_end: str = "#1a0f1a"  # Bottom color shifts to this
+    gradient_cycle_speed: float = 1.0  # How many full cycles
+
     # Vignette
     vignette_enabled: bool = True
     vignette_strength: float = 0.3
+
+    # Special modes
+    greenscreen: bool = False
+    transparent: bool = False
 
 
 @dataclass(frozen=True)
@@ -29,7 +38,7 @@ class FontConfig:
     """Font size settings."""
     size_large: int = 72
     size_small: int = 18
-    custom_font_path: str = None  # e.g. "assets/fonts/cool.ttf"
+    custom_font_path: str = None
 
 
 @dataclass(frozen=True)
@@ -61,25 +70,25 @@ class AnimationConfig:
     elimination_x_width_ratio: float = 0.1
     elimination_x_padding_ratio: float = 0.125
 
-    # Screen flash
-    flash_on_elimination: bool = True
+    flash_on_elimination: bool = False
     flash_intensity: float = 0.15
     flash_duration: int = 5
 
-    # Entity idle wobble
-    wobble_enabled: bool = False
-    wobble_amount: float = 2.0
+    idle_enabled: bool = True
+    idle_wave_speed: float = 0.05
+    idle_wave_amount: float = 3.0
+    idle_breathe_speed: float = 0.03
+    idle_breathe_amount: float = 0.02
 
 
 @dataclass(frozen=True)
 class EntityDisplayConfig:
     """Entity display settings."""
     name_max_length: int = 12
-    corner_radius: int = 8
+    corner_radius: int = 12      # Rounded corners
     shadow_enabled: bool = True
-    shadow_blur: int = 8
-    shadow_opacity: int = 80
-
+    shadow_blur: int = 10        # Soft shadow
+    shadow_opacity: int = 100    # Visible but not harsh
 
 @dataclass(frozen=True)
 class WinnerScreenConfig:

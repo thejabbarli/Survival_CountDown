@@ -1,8 +1,20 @@
-"""Quick effect test - 4 entities, 2 seconds."""
+"""Quick effect test."""
 
-from core import Entity, Simulation, Renderer, Exporter, RenderConfig, CanvasConfig, FrameListScheduler
+from datetime import datetime
+from core import (
+    Entity, Simulation, Renderer, Exporter,
+    RenderConfig, CanvasConfig, AnimationConfig, CounterDisplayConfig,
+    FrameListScheduler
+)
+from core.idle_animation import IdleAnimator, set_idle_animator
 
-# 4 test entities
+# === SETTINGS ===
+ENTITY_COUNT = 4
+TRANSPARENT_BG = False    # PNG sequence for editing
+GREEN_SCREEN = False      # Green bg for chroma key
+ANIMATED_GRADIENT = True  # Colors shift over time
+
+# Test entities
 entities = [
     Entity(id="1", name="Red", color="#FF4444"),
     Entity(id="2", name="Blue", color="#4444FF"),
@@ -10,25 +22,53 @@ entities = [
     Entity(id="4", name="Yellow", color="#FFFF44"),
 ]
 
-# Fixed beats: frame 30, 60, 90 (3 eliminations = 1 winner)
-scheduler = FrameListScheduler([30, 60, 90])
+# Fixed beats
+scheduler = FrameListScheduler([60, 120, 180])
 
-# Run
+# Run simulation
 sim = Simulation(entities, scheduler=scheduler, fps=60)
 result = sim.run(seed=42)
 
-# Render
+# Idle animation
+set_idle_animator(IdleAnimator(
+    wave_speed=0.08,
+    wave_amount=4.0,
+    breathe_speed=0.04,
+    breathe_amount=0.03
+))
+
+# Background config
+canvas_cfg = CanvasConfig(
+    greenscreen=GREEN_SCREEN,
+    transparent=TRANSPARENT_BG,
+    gradient_enabled=True,
+    animated_gradient=ANIMATED_GRADIENT,
+    gradient_top="#1e1e2e",
+    gradient_bottom="#0a0a12",
+    gradient_top_end="#2e1a3e",     # Shifts to purple
+    gradient_bottom_end="#0a1a1f",  # Shifts to teal
+    gradient_cycle_speed=2.0,        # 2 full color cycles
+    vignette_enabled=True,
+    vignette_strength=0.4
+)
+
 config = RenderConfig(
-    canvas=CanvasConfig(
-        gradient_enabled=True,
-        gradient_top="#1a1a2e",
-        gradient_bottom="#0f0f1a",
-        vignette_enabled=True,
-        vignette_strength=0.3
+    canvas=canvas_cfg,
+    animation=AnimationConfig(
+        flash_on_elimination=False,
+        idle_enabled=True
+    ),
+    counter=CounterDisplayConfig(
+        pulse_on_elimination=True,
+        pulse_scale=1.3
     )
 )
-renderer = Renderer(config)
 
+# Create renderer with total frames
+renderer = Renderer(config, total_frames=result.total_frames)
+renderer.set_eliminations(result.events)
+
+# Render frames
 frames = []
 for f in range(result.total_frames):
     if f >= result.total_frames - 60:
@@ -36,9 +76,34 @@ for f in range(result.total_frames):
     else:
         frames.append(renderer.render_frame(entities, f))
 
-# Export
-exporter = Exporter(fps=60)
-exporter.export(frames, "test_effects")
+# Generate filename
+now = datetime.now()
+date_str = now.strftime("%b%d").lower()
+time_str = now.strftime("%Hh%Mm")
 
-print(f"Done! Winner: {result.winner.name}")
-print("Output: output/test_effects.mp4")
+if GREEN_SCREEN:
+    bg_type = "green"
+elif TRANSPARENT_BG:
+    bg_type = "transparent"
+elif ANIMATED_GRADIENT:
+    bg_type = "animated"
+else:
+    bg_type = "static"
+
+filename = f"test_{ENTITY_COUNT}ent_{bg_type}_{date_str}_{time_str}"
+
+# Export
+if TRANSPARENT_BG:
+    import os
+    out_dir = f"output/{filename}"
+    os.makedirs(out_dir, exist_ok=True)
+    for i, frame in enumerate(frames):
+        frame.save(f"{out_dir}/frame_{i:04d}.png")
+    print(f"PNG sequence: {out_dir}/")
+else:
+    exporter = Exporter(fps=60)
+    exporter.export(frames, filename)
+    print(f"Video: output/{filename}.mp4")
+
+print(f"Winner: {result.winner.name}")
+print(f"Frames: {result.total_frames}")

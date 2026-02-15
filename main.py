@@ -71,6 +71,16 @@ def parse_args():
         help="Audio mode"
     )
     parser.add_argument(
+        "--greenscreen",
+        action="store_true",
+        help="Green background for chroma key editing"
+    )
+    parser.add_argument(
+        "--transparent",
+        action="store_true",
+        help="Export PNG sequence with transparent background"
+    )
+    parser.add_argument(
         "--music",
         type=str,
         default=None,
