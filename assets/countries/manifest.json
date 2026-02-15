@@ -1,0 +1,28 @@
+{
+  "name": "Countries",
+  "description": "Flags of world countries",
+  "author": "Sample",
+  "entities": [
+    {"id": "usa", "name": "United States", "color": "#3C3B6E"},
+    {"id": "brazil", "name": "Brazil", "color": "#009739"},
+    {"id": "germany", "name": "Germany", "color": "#FFCC00"},
+    {"id": "japan", "name": "Japan", "color": "#BC002D"},
+    {"id": "france", "name": "France", "color": "#0055A4"},
+    {"id": "italy", "name": "Italy", "color": "#009246"},
+    {"id": "uk", "name": "United Kingdom", "color": "#012169"},
+    {"id": "canada", "name": "Canada", "color": "#FF0000"},
+    {"id": "australia", "name": "Australia", "color": "#00008B"},
+    {"id": "india", "name": "India", "color": "#FF9933"},
+    {"id": "china", "name": "China", "color": "#DE2910"},
+    {"id": "russia", "name": "Russia", "color": "#0039A6"},
+    {"id": "mexico", "name": "Mexico", "color": "#006847"},
+    {"id": "spain", "name": "Spain", "color": "#AA151B"},
+    {"id": "argentina", "name": "Argentina", "color": "#74ACDF"},
+    {"id": "south_korea", "name": "South Korea", "color": "#003478"}
+  ],
+  "groups": {
+    "europe": ["germany", "france", "italy", "uk", "spain", "russia"],
+    "americas": ["usa", "brazil", "canada", "mexico", "argentina"],
+    "asia": ["japan", "india", "china", "south_korea"]
+  }
+}
