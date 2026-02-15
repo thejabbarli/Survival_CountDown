@@ -1,5 +1,5 @@
 from .entity import Entity
 from .project import Project
-from .simulation import Simulation, EliminationEvent
-from .renderer import Renderer
+from .simulation import Simulation, EliminationEvent, SimulationResult
+from .renderer import Renderer, RenderConfig
 from .exporter import Exporter

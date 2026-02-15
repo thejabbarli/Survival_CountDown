@@ -2,7 +2,7 @@ import yaml
 from pathlib import Path
 from datetime import datetime
 
-from core import Project, Simulation, Renderer, Exporter
+from core import Project, Simulation, Renderer, RenderConfig, Exporter
 
 
 def load_config(config_path: Path = Path("config.yaml")) -> dict:
@@ -53,22 +53,21 @@ def main():
     print(f"Total eliminations: {len(result.events)}")
     print(f"Total frames: {result.total_frames}")
 
-    # Create renderer
-    renderer = Renderer(
+    # Create renderer with config
+    render_config = RenderConfig(
         width=video_cfg.get('width', 1080),
         height=video_cfg.get('height', 1920),
         background_color=vis_cfg.get('background_color', '#1a1a2e'),
-        cell_padding=vis_cfg.get('cell_padding', 10),
+        cell_padding=vis_cfg.get('cell_padding', 8),
         show_counter=vis_cfg.get('show_counter', True),
         counter_position=vis_cfg.get('counter_position', 'top')
     )
+    renderer = Renderer(render_config)
 
     # Render all frames
     print(f"Rendering {result.total_frames} frames...")
     frames = []
 
-    # Build elimination lookup for quick access
-    elim_frames = {e.frame: e for e in result.events}
     winner_start_frame = result.total_frames - simulation.winner_celebration_frames
 
     for frame_num in range(result.total_frames):
@@ -76,10 +75,8 @@ def main():
             print(f"  Frame {frame_num}/{result.total_frames}")
 
         if frame_num >= winner_start_frame:
-            # Winner celebration
             frame = renderer.render_winner_frame(result.winner)
         else:
-            # Normal game frame
             frame = renderer.render_frame(entities, frame_num)
 
         frames.append(frame)
