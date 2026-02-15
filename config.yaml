@@ -1,3 +1,6 @@
+# Survival Countdown Configuration
+# ================================
+
 # Video settings
 video:
   width: 1080
@@ -6,31 +9,49 @@ video:
 
 # Simulation settings
 simulation:
-  entity_count: 100
-  elimination_interval: 15
+  entity_count: 64  # Use "all" for all entities in project
+  elimination_interval: 10  # frames between eliminations (ignored if beat_sync)
   sudden_death:
     enabled: true
-    threshold_1: 10
-    multiplier_1: 2
-    threshold_2: 5
-    multiplier_2: 4
+    threshold_1: 10   # Speed up when this many remain
+    multiplier_1: 2   # Interval multiplier
+    threshold_2: 5    # Speed up more
+    multiplier_2: 4   # Interval multiplier
 
 # Visual settings
 visuals:
-  background_color: "#000000"
-  cell_padding: 10
+  background_color: "#1a1a2e"
+  cell_padding: 8
   show_counter: true
   counter_position: top
 
 # Audio settings
 audio:
   enabled: true
+  
+  # Mode: default | progressive_pitch | midi_melody | beat_sync | beat_sync_midi
+  mode: default
+  
   sound_pack: default
+  
+  # For beat_sync and beat_sync_midi modes
+  music_path: null  # Path to music file
+  
+  # For midi_melody and beat_sync_midi modes
+  midi_path: null   # Path to MIDI file
+  
+  # For progressive_pitch mode
+  pitch_start: -6   # Starting pitch shift (semitones)
+  pitch_end: 6      # Ending pitch shift (semitones)
+  
+  # Countdown settings
   countdown_enabled: false
   countdown_thresholds: [10, 5, 3]
-  background_music: null
+  
+  # Volume levels (0.0 to 1.0)
   volume:
     elimination: 0.8
+    melody: 0.8
     countdown: 1.0
     winner: 1.0
     music: 0.3

@@ -1,8 +1,21 @@
+"""Simulation logic - runs the survival game.
+
+The simulation handles:
+- Random entity selection for elimination
+- Event logging with frame numbers
+- Winner determination
+
+Timing is delegated to EliminationScheduler, making the simulation
+agnostic to HOW timing is determined (intervals, beats, custom).
+"""
+
 import random
 from dataclasses import dataclass
 from typing import List, Optional
 
 from .entity import Entity
+from .scheduler import EliminationScheduler, IntervalScheduler, create_scheduler
+from .config import SchedulerConfig
 
 
 @dataclass
@@ -20,6 +33,7 @@ class SimulationResult:
     winner: Entity
     events: List[EliminationEvent]
     total_frames: int
+    elimination_frames: List[int]  # for audio sync
 
 
 class EntityState:
@@ -63,68 +77,76 @@ class EntityState:
 
 
 class Simulation:
-    """Runs the survival game logic."""
+    """
+    Runs the survival game logic.
+    
+    Timing is handled by an EliminationScheduler, which can be:
+    - IntervalScheduler (default, with sudden death)
+    - BeatSyncScheduler (sync to music beats)
+    - FrameListScheduler (custom frame list)
+    """
 
     def __init__(
-            self,
-            entities: List[Entity],
-            elimination_interval: int = 30,
-            sudden_death_enabled: bool = True,
-            sudden_death_threshold_1: int = 10,
-            sudden_death_multiplier_1: int = 2,
-            sudden_death_threshold_2: int = 5,
-            sudden_death_multiplier_2: int = 4,
-            fps: int = 60,
-            winner_celebration_seconds: float = 2.0
+        self,
+        entities: List[Entity],
+        scheduler: Optional[EliminationScheduler] = None,
+        fps: int = 60,
+        winner_celebration_seconds: float = 2.0,
+        # Legacy parameters for backward compatibility
+        elimination_interval: int = 30,
+        sudden_death_enabled: bool = True,
+        sudden_death_threshold_1: int = 10,
+        sudden_death_multiplier_1: int = 2,
+        sudden_death_threshold_2: int = 5,
+        sudden_death_multiplier_2: int = 4
     ):
         if len(entities) < 2:
             raise ValueError("Need at least 2 entities for a simulation")
 
         self.entities = entities
-        self.base_interval = elimination_interval
-        self.sudden_death_enabled = sudden_death_enabled
-        self.sd_threshold_1 = sudden_death_threshold_1
-        self.sd_multiplier_1 = sudden_death_multiplier_1
-        self.sd_threshold_2 = sudden_death_threshold_2
-        self.sd_multiplier_2 = sudden_death_multiplier_2
         self.fps = fps
         self.winner_celebration_frames = int(winner_celebration_seconds * fps)
-
-    def _get_current_interval(self, remaining: int) -> int:
-        """
-        Calculate elimination interval based on remaining entities.
-        Fewer remaining = longer interval (slower, more dramatic).
-        """
-        if not self.sudden_death_enabled:
-            return self.base_interval
-
-        # Invert the logic: multiply instead of divide
-        if remaining <= self.sd_threshold_2:
-            return self.base_interval * self.sd_multiplier_2
-        elif remaining <= self.sd_threshold_1:
-            return self.base_interval * self.sd_multiplier_1
+        
+        # Use provided scheduler or create from legacy params
+        if scheduler is not None:
+            self.scheduler = scheduler
         else:
-            return self.base_interval
+            config = SchedulerConfig(
+                elimination_interval=elimination_interval,
+                sudden_death_enabled=sudden_death_enabled,
+                sudden_death_threshold_1=sudden_death_threshold_1,
+                sudden_death_multiplier_1=sudden_death_multiplier_1,
+                sudden_death_threshold_2=sudden_death_threshold_2,
+                sudden_death_multiplier_2=sudden_death_multiplier_2
+            )
+            self.scheduler = IntervalScheduler(len(entities), config)
 
     def _get_alive(self) -> List[Entity]:
         """Get list of entities still alive."""
         return [e for e in self.entities if e.alive]
 
     def run(self, seed: Optional[int] = None) -> SimulationResult:
-        """Run the full simulation."""
+        """
+        Run the full simulation.
+        
+        Args:
+            seed: Random seed for reproducibility
+            
+        Returns:
+            SimulationResult with winner, events, and frame info
+        """
         if seed is not None:
             random.seed(seed)
 
+        # Get elimination frames from scheduler
+        elimination_frames = self.scheduler.get_elimination_frames()
+        
         events: List[EliminationEvent] = []
-        frame = 0
 
-        # Initial pause before first elimination
-        frame += self.fps
-
-        while True:
+        for frame in elimination_frames:
             alive = self._get_alive()
 
-            if len(alive) == 1:
+            if len(alive) <= 1:
                 break
 
             victim = random.choice(alive)
@@ -138,14 +160,45 @@ class Simulation:
             )
             events.append(event)
 
-            interval = self._get_current_interval(len(alive) - 1)
-            frame += interval
-
-        total_frames = frame + self.winner_celebration_frames
+        # Get winner
         winner = self._get_alive()[0]
+        
+        # Calculate total frames
+        total_frames = self.scheduler.get_total_frames(self.winner_celebration_frames)
 
         return SimulationResult(
             winner=winner,
             events=events,
-            total_frames=total_frames
+            total_frames=total_frames,
+            elimination_frames=[e.frame for e in events]
         )
+
+
+def run_simulation(
+    entities: List[Entity],
+    scheduler: Optional[EliminationScheduler] = None,
+    beat_frames: Optional[List[int]] = None,
+    fps: int = 60,
+    seed: Optional[int] = None
+) -> SimulationResult:
+    """
+    Convenience function to run a simulation.
+    
+    Args:
+        entities: List of entities to compete
+        scheduler: Optional custom scheduler
+        beat_frames: Optional beat frames for beat sync mode
+        fps: Frame rate
+        seed: Random seed
+        
+    Returns:
+        SimulationResult
+    """
+    if scheduler is None and beat_frames is not None:
+        scheduler = create_scheduler(
+            entity_count=len(entities),
+            beat_frames=beat_frames
+        )
+    
+    sim = Simulation(entities, scheduler=scheduler, fps=fps)
+    return sim.run(seed=seed)

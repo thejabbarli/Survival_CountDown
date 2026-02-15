@@ -4,10 +4,18 @@ import os
 import tempfile
 import shutil
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 
 from PIL import Image
-from moviepy import ImageSequenceClip, CompositeAudioClip
+
+# Optional dependency - may not be installed
+try:
+    from moviepy import ImageSequenceClip, CompositeAudioClip
+    MOVIEPY_AVAILABLE = True
+except ImportError:
+    MOVIEPY_AVAILABLE = False
+    ImageSequenceClip = None
+    CompositeAudioClip = None
 
 
 class Exporter:
@@ -29,7 +37,7 @@ class Exporter:
         self,
         frames: List[Image.Image],
         filename: str,
-        audio: Optional[CompositeAudioClip] = None
+        audio: Optional['CompositeAudioClip'] = None
     ) -> Path:
         """
         Export frames to MP4 video.
@@ -42,6 +50,12 @@ class Exporter:
         Returns:
             Path to the exported video file
         """
+        if not MOVIEPY_AVAILABLE:
+            raise ImportError(
+                "moviepy is required for video export. "
+                "Install with: pip install moviepy"
+            )
+        
         output_path = self.output_dir / f"{filename}.mp4"
         temp_dir = tempfile.mkdtemp()
 
@@ -65,7 +79,7 @@ class Exporter:
                 str(output_path),
                 codec=self.codec,
                 audio_codec="aac" if audio is not None else None,
-                logger=None
+                logger="bar"
             )
 
             clip.close()

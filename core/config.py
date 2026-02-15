@@ -1,6 +1,7 @@
 """Configuration classes - each focused on one concern."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Optional, Tuple, List
 
 
 @dataclass(frozen=True)
@@ -62,25 +63,58 @@ class WinnerScreenConfig:
     name_offset_y: int = -30
 
 
-@dataclass(frozen=True)
+@dataclass
 class AudioConfig:
-    """Audio settings."""
+    """Audio settings - supports multiple modes."""
     enabled: bool = True
+    
+    # Mode: "default" | "progressive_pitch" | "midi_melody" | "beat_sync" | "beat_sync_midi"
+    mode: str = "default"
+    
+    # Sound pack settings
     sound_pack: str = "default"
     sounds_dir: str = "sounds/packs"
-
+    
     # Volume levels (0.0 to 1.0)
     elimination_volume: float = 0.8
     countdown_volume: float = 1.0
     winner_volume: float = 1.0
     music_volume: float = 0.3
-
+    melody_volume: float = 0.8
+    
     # Countdown settings
     countdown_enabled: bool = True
-    countdown_thresholds: tuple = (10, 5, 3)  # Play sound when this many remain
+    countdown_thresholds: Tuple[int, ...] = (10, 5, 3)
+    
+    # Progressive pitch settings
+    pitch_start: int = -6  # semitones
+    pitch_end: int = 6     # semitones
+    
+    # Beat sync settings
+    music_path: Optional[str] = None
+    use_every_beat: bool = True
+    use_every_nth_beat: int = 1  # use every Nth beat (1 = all, 2 = every other)
+    beat_start_offset: float = 0.5  # seconds before first elimination
+    
+    # MIDI settings
+    midi_path: Optional[str] = None
+    instrument: str = "piano"
+    note_duration: float = 0.3
 
-    # Background music
-    music_path: str = None  # Path to background music file
+
+@dataclass
+class SchedulerConfig:
+    """Elimination timing settings."""
+    # Interval-based (default)
+    elimination_interval: int = 30  # frames between eliminations
+    initial_delay: int = 60  # frames before first elimination
+    
+    # Sudden death
+    sudden_death_enabled: bool = True
+    sudden_death_threshold_1: int = 10
+    sudden_death_multiplier_1: int = 2
+    sudden_death_threshold_2: int = 5
+    sudden_death_multiplier_2: int = 4
 
 
 @dataclass
@@ -97,6 +131,7 @@ class RenderConfig:
     entity: EntityDisplayConfig = None
     winner: WinnerScreenConfig = None
     audio: AudioConfig = None
+    scheduler: SchedulerConfig = None
 
     def __post_init__(self) -> None:
         """Initialize with defaults if not provided."""
@@ -116,3 +151,5 @@ class RenderConfig:
             self.winner = WinnerScreenConfig()
         if self.audio is None:
             self.audio = AudioConfig()
+        if self.scheduler is None:
+            self.scheduler = SchedulerConfig()
