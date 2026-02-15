@@ -2,7 +2,16 @@ import yaml
 from pathlib import Path
 from datetime import datetime
 
-from core import Project, Simulation, Renderer, RenderConfig, Exporter
+from core import (
+    Project,
+    Simulation,
+    Renderer,
+    Exporter,
+    RenderConfig,
+    CanvasConfig,
+    LayoutConfig,
+    CounterDisplayConfig
+)
 
 
 def load_config(config_path: Path = Path("config.yaml")) -> dict:
@@ -13,7 +22,7 @@ def load_config(config_path: Path = Path("config.yaml")) -> dict:
     return {}
 
 
-def main():
+def main() -> None:
     # Load config
     config = load_config()
     video_cfg = config.get('video', {})
@@ -53,14 +62,20 @@ def main():
     print(f"Total eliminations: {len(result.events)}")
     print(f"Total frames: {result.total_frames}")
 
-    # Create renderer with config
+    # Create render config from yaml
     render_config = RenderConfig(
-        width=video_cfg.get('width', 1080),
-        height=video_cfg.get('height', 1920),
-        background_color=vis_cfg.get('background_color', '#1a1a2e'),
-        cell_padding=vis_cfg.get('cell_padding', 8),
-        show_counter=vis_cfg.get('show_counter', True),
-        counter_position=vis_cfg.get('counter_position', 'top')
+        canvas=CanvasConfig(
+            width=video_cfg.get('width', 1080),
+            height=video_cfg.get('height', 1920),
+            background_color=vis_cfg.get('background_color', '#1a1a2e')
+        ),
+        layout=LayoutConfig(
+            cell_padding=vis_cfg.get('cell_padding', 8)
+        ),
+        counter=CounterDisplayConfig(
+            enabled=vis_cfg.get('show_counter', True),
+            position=vis_cfg.get('counter_position', 'top')
+        )
     )
     renderer = Renderer(render_config)
 

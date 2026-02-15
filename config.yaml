@@ -6,7 +6,7 @@ video:
 
 # Simulation settings
 simulation:
-  entity_count: 16  # Use "all" for all entities in project
+  entity_count: 4  # Use "all" for all entities in project
   elimination_interval: 30  # frames between eliminations
   sudden_death:
     enabled: true

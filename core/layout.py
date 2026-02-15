@@ -27,13 +27,13 @@ class GridLayout(BaseLayout):
     """Grid-based layout for entities."""
 
     def __init__(
-            self,
-            canvas_width: int,
-            canvas_height: int,
-            padding: int = 8,
-            margin: int = 50,
-            reserved_top: int = 0,
-            reserved_bottom: int = 0
+        self,
+        canvas_width: int,
+        canvas_height: int,
+        padding: int = 8,
+        margin: int = 50,
+        reserved_top: int = 0,
+        reserved_bottom: int = 0
     ):
         self.canvas_width = canvas_width
         self.canvas_height = canvas_height
@@ -51,10 +51,10 @@ class GridLayout(BaseLayout):
     def _calculate_cell_size(self, cols: int, rows: int) -> int:
         """Calculate cell size to fit all entities."""
         usable_height = (
-                self.canvas_height
-                - self.reserved_top
-                - self.reserved_bottom
-                - (self.margin * 2)
+            self.canvas_height
+            - self.reserved_top
+            - self.reserved_bottom
+            - (self.margin * 2)
         )
         usable_width = self.canvas_width - (self.margin * 2)
 
@@ -74,8 +74,8 @@ class GridLayout(BaseLayout):
 
         # Center the grid
         offset_x = (self.canvas_width - grid_width) // 2
-        offset_y = self.reserved_top + (
-                self.canvas_height - self.reserved_top - self.reserved_bottom - grid_height
+        offset_y = self.reserved_top + self.margin + (
+            self.canvas_height - self.reserved_top - self.reserved_bottom - (self.margin * 2) - grid_height
         ) // 2
 
         # Generate positions
