@@ -21,9 +21,20 @@ simulation:
 # Visual settings
 visuals:
   background_color: "#1a1a2e"
-  cell_padding: 8
-  show_counter: true
-  counter_position: top
+  background_image: null  # or "assets/bg/cool_bg.png"
+
+  # Gradient (if no custom image)
+  gradient_enabled: true
+  gradient_top: "#1a1a2e"
+  gradient_bottom: "#0f0f1a"
+
+  # Vignette (dark edges)
+  vignette_enabled: true
+  vignette_strength: 0.3
+
+  # Entity style
+  corner_radius: 8
+  shadow_enabled: true
 
 # Audio settings
 audio:
