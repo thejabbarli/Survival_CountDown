@@ -165,18 +165,27 @@ class EntityDrawer:
             shadow_y = pos.y - cfg.shadow_blur * 2 + 4
             canvas.paste(shadow, (shadow_x, shadow_y), shadow)
 
+
+        # FOR ROUND CORNERS
         # Try image first
+        # if entity.image_path is not None:
+        #     img = self.image_cache.get(entity.image_path, pos.size)
+        #     if img is not None:
+        #         # Apply rounded corners
+        #         if cfg.corner_radius > 0:
+        #             img = self._apply_rounded_corners(img, cfg.corner_radius)
+        #
+        #         canvas.paste(img, (pos.x, pos.y), img)
+        #
+        #         # Draw subtle border
+        #         self._draw_border(target, pos, cfg.corner_radius)
+        #         return
+
         if entity.image_path is not None:
             img = self.image_cache.get(entity.image_path, pos.size)
             if img is not None:
-                # Apply rounded corners
-                if cfg.corner_radius > 0:
-                    img = self._apply_rounded_corners(img, cfg.corner_radius)
-
+                # Keep original flag shape - no rounding
                 canvas.paste(img, (pos.x, pos.y), img)
-
-                # Draw subtle border
-                self._draw_border(target, pos, cfg.corner_radius)
                 return
 
         # Fallback: colored rounded rectangle with name

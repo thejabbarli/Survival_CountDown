@@ -1,73 +1,75 @@
-# Survival Countdown Configuration
-# ================================
-
 # Video settings
 video:
-  width: 1080
-  height: 1920
-  fps: 60
+  width: 1080       # 480 for preview, 1080 for full
+  height: 1920      # 854 for preview, 1920 for full
+  fps: 60          # 30 for preview, 60 for full
 
 # Simulation settings
 simulation:
-  entity_count: 64  # Use "all" for all entities in project
-  elimination_interval: 10  # frames between eliminations (ignored if beat_sync)
+  entity_count: 64  # 4 for test, 64 for real
+  seed: 40         # Same seed = same result (remove for random)
+  elimination_interval: 30
   sudden_death:
     enabled: true
-    threshold_1: 10   # Speed up when this many remain
-    multiplier_1: 2   # Interval multiplier
-    threshold_2: 5    # Speed up more
-    multiplier_2: 4   # Interval multiplier
+    threshold_1: 10
+    multiplier_1: 2
+    threshold_2: 5
+    multiplier_2: 4
 
 # Visual settings
 visuals:
-  background_color: "#1a1a2e"
-  background_image: null  # or "assets/bg/cool_bg.png"
-
-  # Gradient (if no custom image)
+  # Gradient background
   gradient_enabled: true
-  gradient_top: "#1a1a2e"
-  gradient_bottom: "#0f0f1a"
+  animated_gradient: true
+  gradient_top: "#1e1e2e"
+  gradient_bottom: "#0a0a12"
+  gradient_top_end: "#2e1a3e"
+  gradient_bottom_end: "#0a1a1f"
+  gradient_cycle_speed: 2.0
 
-  # Vignette (dark edges)
+  # Vignette
   vignette_enabled: true
-  vignette_strength: 0.3
+  vignette_strength: 0.4
 
-  # Entity style
-  corner_radius: 8
+  # Entity cards
+  corner_radius: 12
   shadow_enabled: true
+  shadow_blur: 10
+  shadow_opacity: 100
+  cell_padding: 10
+
+  # Idle animation (wave/breathing)
+  idle_enabled: true
+  idle_wave_speed: 0.08
+  idle_wave_amount: 4.0
+  idle_breathe_speed: 0.04
+  idle_breathe_amount: 0.03
+
+  # Counter
+  show_counter: true
+  counter_position: top
+  counter_format: "{count}"  # Just number, no "remaining"
+
+  # Special modes (pick one or none)
+  greenscreen: false
+  transparent: false
 
 # Audio settings
 audio:
   enabled: true
-  
-  # Mode: default | progressive_pitch | midi_melody | beat_sync | beat_sync_midi
-  mode: default
-  
+  mode: beat_sync              # "default" or "beat_sync"
+  music_path: sounds/music/vem_vem.mp3  # Your music file
+  beats_file: beats/vem_vem_new.txt
+  beats_fps: 60
   sound_pack: default
-  
-  # For beat_sync and beat_sync_midi modes
-  music_path: null  # Path to music file
-  
-  # For midi_melody and beat_sync_midi modes
-  midi_path: null   # Path to MIDI file
-  
-  # For progressive_pitch mode
-  pitch_start: -6   # Starting pitch shift (semitones)
-  pitch_end: 6      # Ending pitch shift (semitones)
-  
-  # Countdown settings
   countdown_enabled: false
   countdown_thresholds: [10, 5, 3]
-  
-  # Volume levels (0.0 to 1.0)
   volume:
     elimination: 0.8
-    melody: 0.8
     countdown: 1.0
     winner: 1.0
-    music: 0.3
+    music: 0.4
 
 # Output settings
 output:
   directory: output
-  filename_pattern: "{project}_{timestamp}"

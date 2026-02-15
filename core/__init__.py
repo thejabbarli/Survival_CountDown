@@ -52,7 +52,9 @@ from .animations import (
     EliminationAnimation,
     ShrinkWithXAnimation,
     FadeOutAnimation,
-    InstantRemoveAnimation
+    InstantRemoveAnimation,
+    ModernFadeAnimation,
+    RedPulseFadeAnimation
 )
 from .drawers import EntityDrawer, CounterDrawer, WinnerDrawer
 from .renderer import Renderer, GameFrameRenderer, WinnerFrameRenderer, RendererFactory
@@ -68,6 +70,7 @@ from .audio import (
     AudioMode
 )
 
+
 __all__ = [
     # Core
     'Entity',
@@ -76,19 +79,19 @@ __all__ = [
     'EliminationEvent',
     'SimulationResult',
     'EntityState',
-    
+
     # Scheduling
     'EliminationScheduler',
     'IntervalScheduler',
     'BeatSyncScheduler',
     'FrameListScheduler',
     'create_scheduler',
-    
+
     # Layout
     'GridLayout',
     'BaseLayout',
     'CellPosition',
-    
+
     # Config
     'RenderConfig',
     'CanvasConfig',
@@ -100,7 +103,7 @@ __all__ = [
     'WinnerScreenConfig',
     'AudioConfig',
     'SchedulerConfig',
-    
+
     # Rendering
     'FontLoader',
     'CanvasFactory',
@@ -108,6 +111,8 @@ __all__ = [
     'ShrinkWithXAnimation',
     'FadeOutAnimation',
     'InstantRemoveAnimation',
+    'ModernFadeAnimation',
+    'RedPulseFadeAnimation',
     'EntityDrawer',
     'CounterDrawer',
     'WinnerDrawer',
@@ -118,7 +123,7 @@ __all__ = [
     'Exporter',
     'ImageCache',
     'get_image_cache',
-    
+
     # Audio
     'BeatDetector',
     'BeatDetectionResult',

@@ -191,7 +191,9 @@ class RendererFactory:
         return WinnerDrawer(
             canvas=self.config.canvas,
             config=self.config.winner,
-            font=self.font_loader.get_large()
+            font=self.font_loader.get_large(),
+            corner_radius=self.config.entity.corner_radius,
+            shadow_enabled=self.config.entity.shadow_enabled
         )
 
     def create_game_renderer(self) -> GameFrameRenderer:
