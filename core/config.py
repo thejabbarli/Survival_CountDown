@@ -62,6 +62,27 @@ class WinnerScreenConfig:
     name_offset_y: int = -30
 
 
+@dataclass(frozen=True)
+class AudioConfig:
+    """Audio settings."""
+    enabled: bool = True
+    sound_pack: str = "default"
+    sounds_dir: str = "sounds/packs"
+
+    # Volume levels (0.0 to 1.0)
+    elimination_volume: float = 0.8
+    countdown_volume: float = 1.0
+    winner_volume: float = 1.0
+    music_volume: float = 0.3
+
+    # Countdown settings
+    countdown_enabled: bool = True
+    countdown_thresholds: tuple = (10, 5, 3)  # Play sound when this many remain
+
+    # Background music
+    music_path: str = None  # Path to background music file
+
+
 @dataclass
 class RenderConfig:
     """
@@ -75,6 +96,7 @@ class RenderConfig:
     animation: AnimationConfig = None
     entity: EntityDisplayConfig = None
     winner: WinnerScreenConfig = None
+    audio: AudioConfig = None
 
     def __post_init__(self) -> None:
         """Initialize with defaults if not provided."""
@@ -92,3 +114,5 @@ class RenderConfig:
             self.entity = EntityDisplayConfig()
         if self.winner is None:
             self.winner = WinnerScreenConfig()
+        if self.audio is None:
+            self.audio = AudioConfig()

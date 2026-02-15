@@ -7,10 +7,12 @@ from core import (
     Simulation,
     Renderer,
     Exporter,
+    AudioBuilder,
     RenderConfig,
     CanvasConfig,
     LayoutConfig,
-    CounterDisplayConfig
+    CounterDisplayConfig,
+    AudioConfig
 )
 
 
@@ -29,6 +31,7 @@ def main() -> None:
     sim_cfg = config.get('simulation', {})
     vis_cfg = config.get('visuals', {})
     out_cfg = config.get('output', {})
+    audio_cfg = config.get('audio', {})
     sudden_death_cfg = sim_cfg.get('sudden_death', {})
 
     # Load project
@@ -44,6 +47,7 @@ def main() -> None:
     print(f"Using {len(entities)} entities")
 
     # Create simulation
+    fps = video_cfg.get('fps', 60)
     simulation = Simulation(
         entities=entities,
         elimination_interval=sim_cfg.get('elimination_interval', 30),
@@ -52,7 +56,7 @@ def main() -> None:
         sudden_death_multiplier_1=sudden_death_cfg.get('multiplier_1', 2),
         sudden_death_threshold_2=sudden_death_cfg.get('threshold_2', 5),
         sudden_death_multiplier_2=sudden_death_cfg.get('multiplier_2', 4),
-        fps=video_cfg.get('fps', 60)
+        fps=fps
     )
 
     # Run simulation
@@ -62,7 +66,7 @@ def main() -> None:
     print(f"Total eliminations: {len(result.events)}")
     print(f"Total frames: {result.total_frames}")
 
-    # Create render config from yaml
+    # Create render config
     render_config = RenderConfig(
         canvas=CanvasConfig(
             width=video_cfg.get('width', 1080),
@@ -96,17 +100,45 @@ def main() -> None:
 
         frames.append(frame)
 
+    # Build audio
+    audio = None
+    if audio_cfg.get('enabled', True):
+        print("Building audio...")
+        audio_config = AudioConfig(
+            enabled=audio_cfg.get('enabled', True),
+            sound_pack=audio_cfg.get('sound_pack', 'default'),
+            elimination_volume=audio_cfg.get('volume', {}).get('elimination', 0.8),
+            countdown_volume=audio_cfg.get('volume', {}).get('countdown', 1.0),
+            winner_volume=audio_cfg.get('volume', {}).get('winner', 1.0),
+            music_volume=audio_cfg.get('volume', {}).get('music', 0.3),
+            countdown_enabled=audio_cfg.get('countdown_enabled', True),
+            countdown_thresholds=tuple(audio_cfg.get('countdown_thresholds', [10, 5, 3])),
+            music_path=audio_cfg.get('background_music')
+        )
+
+        audio_builder = AudioBuilder(audio_config, fps=fps)
+        audio = audio_builder.build(
+            events=result.events,
+            total_frames=result.total_frames,
+            winner_frame=winner_start_frame
+        )
+
+        if audio:
+            print("  Audio track created")
+        else:
+            print("  No sounds found, video will be silent")
+
     # Export video
     print("Exporting video...")
     exporter = Exporter(
-        fps=video_cfg.get('fps', 60),
+        fps=fps,
         output_dir=Path(out_cfg.get('directory', 'output'))
     )
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"{project.name}_{timestamp}"
 
-    output_path = exporter.export(frames, filename)
+    output_path = exporter.export(frames, filename, audio=audio)
     print(f"Done! Video saved to: {output_path}")
 
 

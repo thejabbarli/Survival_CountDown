@@ -10,7 +10,8 @@ from .config import (
     CounterDisplayConfig,
     AnimationConfig,
     EntityDisplayConfig,
-    WinnerScreenConfig
+    WinnerScreenConfig,
+    AudioConfig
 )
 from .fonts import FontLoader
 from .canvas import CanvasFactory
@@ -22,4 +23,5 @@ from .animations import (
 )
 from .drawers import EntityDrawer, CounterDrawer, WinnerDrawer
 from .renderer import Renderer, GameFrameRenderer, WinnerFrameRenderer, RendererFactory
+from .audio import AudioBuilder, SoundLoader
 from .exporter import Exporter

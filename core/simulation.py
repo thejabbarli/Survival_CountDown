@@ -91,14 +91,18 @@ class Simulation:
         self.winner_celebration_frames = int(winner_celebration_seconds * fps)
 
     def _get_current_interval(self, remaining: int) -> int:
-        """Calculate elimination interval based on remaining entities."""
+        """
+        Calculate elimination interval based on remaining entities.
+        Fewer remaining = longer interval (slower, more dramatic).
+        """
         if not self.sudden_death_enabled:
             return self.base_interval
 
+        # Invert the logic: multiply instead of divide
         if remaining <= self.sd_threshold_2:
-            return max(1, self.base_interval // self.sd_multiplier_2)
+            return self.base_interval * self.sd_multiplier_2
         elif remaining <= self.sd_threshold_1:
-            return max(1, self.base_interval // self.sd_multiplier_1)
+            return self.base_interval * self.sd_multiplier_1
         else:
             return self.base_interval
 

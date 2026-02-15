@@ -6,8 +6,8 @@ video:
 
 # Simulation settings
 simulation:
-  entity_count: 4  # Use "all" for all entities in project
-  elimination_interval: 30  # frames between eliminations
+  entity_count: 4
+  elimination_interval: 30
   sudden_death:
     enabled: true
     threshold_1: 10
@@ -20,7 +20,20 @@ visuals:
   background_color: "#1a1a2e"
   cell_padding: 10
   show_counter: true
-  counter_position: top  # top or bottom
+  counter_position: top
+
+# Audio settings
+audio:
+  enabled: true
+  sound_pack: default
+  countdown_enabled: false
+  countdown_thresholds: [10, 5, 3]
+  background_music: null
+  volume:
+    elimination: 0.8
+    countdown: 1.0
+    winner: 1.0
+    music: 0.3
 
 # Output settings
 output:
