@@ -6,7 +6,7 @@ video:
 
 # Simulation settings
 simulation:
-  entity_count: 36  # 4 for test, 64 for real
+  entity_count: 64  # 4 for test, 64 for real
   seed: 40         # Same seed = same result (remove for random)
   elimination_interval: 30
   sudden_death:

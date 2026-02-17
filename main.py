@@ -227,17 +227,24 @@ def main() -> None:
     renderer.set_eliminations(result.events)
 
     # ========================================
-    # RENDER FRAMES
+    # RENDER FRAMES (memory efficient - writes to disk)
     # ========================================
 
     print(f"\nRendering {result.total_frames} frames at {width}x{height} {fps}fps...")
     render_start = time.time()
-    frames = []
+
+    # Create temp directory for frames
+    temp_frames_dir = Path(out_cfg.get('directory', 'output')) / "_temp_frames"
+    if temp_frames_dir.exists():
+        import shutil
+        shutil.rmtree(temp_frames_dir)
+    temp_frames_dir.mkdir(parents=True)
 
     # Add extra frames for last elimination animation to finish
     animation_buffer = int(fps * 0.5)  # 0.5 seconds
     winner_start_frame = result.total_frames - simulation.winner_celebration_frames + animation_buffer
 
+    frame_paths = []
     for frame_num in range(result.total_frames):
         # Progress every 60 frames
         if frame_num % 60 == 0:
@@ -253,7 +260,10 @@ def main() -> None:
         else:
             frame = renderer.render_frame(entities, frame_num)
 
-        frames.append(frame)
+        # Save to disk immediately (don't store in memory)
+        frame_path = temp_frames_dir / f"frame_{frame_num:06d}.jpg"
+        frame.convert('RGB').save(frame_path, "JPEG", quality=95)
+        frame_paths.append(str(frame_path))
 
     render_time = time.time() - render_start
     print(f"Render done in {int(render_time // 60)}m {int(render_time % 60)}s")
@@ -291,37 +301,55 @@ def main() -> None:
         else:
             print("  No sounds found, video will be silent")
 
-    # ========================================
-    # EXPORT
-    # ========================================
+        # ========================================
+        # EXPORT
+        # ========================================
 
-    print("\nExporting video (this takes longest)...")
-    export_start = time.time()
+        print("\nExporting video...")
+        export_start = time.time()
 
-    exporter = Exporter(
-        fps=fps,
-        output_dir=Path(out_cfg.get('directory', 'output'))
-    )
+        try:
+            from moviepy import ImageSequenceClip, AudioFileClip
+        except ImportError:
+            from moviepy.editor import ImageSequenceClip, AudioFileClip
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    seed_str = f"_seed{seed}" if seed else ""
-    filename = f"{project.name}_{len(entities)}ent{seed_str}_{timestamp}"
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        seed_str = f"_seed{seed}" if seed else ""
+        filename = f"{project.name}_{len(entities)}ent{seed_str}_{timestamp}.mp4"
+        output_path = Path(out_cfg.get('directory', 'output')) / filename
 
-    output_path = exporter.export(frames, filename, audio=audio)
+        # Create clip from saved frames
+        clip = ImageSequenceClip(frame_paths, fps=fps)
 
-    export_time = time.time() - export_start
-    total_time = render_time + export_time
+        # Add audio
+        if audio and Path(audio).exists():
+            audio_clip = AudioFileClip(str(audio))
+            if audio_clip.duration > clip.duration:
+                try:
+                    audio_clip = audio_clip.subclipped(0, clip.duration)
+                except AttributeError:
+                    audio_clip = audio_clip.subclip(0, clip.duration)
+            try:
+                clip = clip.with_audio(audio_clip)
+            except AttributeError:
+                clip = clip.set_audio(audio_clip)
 
-    print()
-    print("=" * 50)
-    print(f"DONE: {output_path}")
-    print("=" * 50)
-    print(f"Render: {int(render_time // 60)}m {int(render_time % 60)}s")
-    print(f"Export: {int(export_time // 60)}m {int(export_time % 60)}s")
-    print(f"Total:  {int(total_time // 60)}m {int(total_time % 60)}s")
-    if seed:
-        print(f"\nTo replay exact simulation: set seed: {seed} in config.yaml")
-    print()
+        clip.write_videofile(
+            str(output_path),
+            codec='libx264',
+            audio_codec='aac' if audio else None,
+            fps=fps,
+            preset='fast',
+            threads=4,
+            logger='bar'
+        )
+        clip.close()
+
+        # Clean up temp frames
+        import shutil
+        shutil.rmtree(temp_frames_dir)
+
+        export_time = time.time() - export_start
 
 
 if __name__ == "__main__":

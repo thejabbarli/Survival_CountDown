@@ -1,5 +1,6 @@
-"""Video exporter using MoviePy."""
+"""Video exporter using MoviePy - memory efficient."""
 
+import shutil
 from pathlib import Path
 from typing import List, Optional, Callable, Union
 from PIL import Image
@@ -25,83 +26,85 @@ class Exporter:
         progress_callback: Optional[Callable[[int, int], None]] = None
     ) -> Path:
         """Export frames to video file.
-        
-        Args:
-            frames: List of PIL Image frames
-            filename: Output filename (adds .mp4 if missing)
-            audio: Path to audio file (optional)
-            progress_callback: Optional callback for progress updates
-            
-        Returns:
-            Path to output video file
+
+        Writes frames to disk first to avoid memory issues with large videos.
         """
-        # Try new moviepy import first, then fall back to old
         try:
             from moviepy import ImageSequenceClip, AudioFileClip
         except ImportError:
-            try:
-                from moviepy.editor import ImageSequenceClip, AudioFileClip
-            except ImportError:
-                raise ImportError(
-                    "moviepy is required for export. Install with: pip install moviepy\n"
-                    "If you have moviepy installed, try: pip install --upgrade moviepy"
-                )
-
-        import numpy as np
+            from moviepy.editor import ImageSequenceClip, AudioFileClip
 
         # Ensure .mp4 extension
         if not filename.endswith('.mp4'):
             filename = filename + '.mp4'
-            
+
         output_path = self.output_dir / filename
 
-        # Convert PIL images to numpy arrays
-        frame_arrays = []
-        for i, frame in enumerate(frames):
-            if frame.mode != 'RGB':
-                frame = frame.convert('RGB')
-            frame_arrays.append(np.array(frame))
-            
-            if progress_callback and i % 10 == 0:
-                progress_callback(i, len(frames))
+        # Create temp directory for frames
+        temp_dir = self.output_dir / "_temp_frames"
+        if temp_dir.exists():
+            shutil.rmtree(temp_dir)
+        temp_dir.mkdir()
 
-        # Create video clip
-        clip = ImageSequenceClip(frame_arrays, fps=self.fps)
+        try:
+            # Write frames to disk as JPEG (smaller, faster)
+            print(f"  Saving {len(frames)} frames to disk...")
+            frame_paths = []
 
-        # Add audio if provided
-        audio_path = Path(audio) if audio else None
-        if audio_path and audio_path.exists():
-            audio_clip = AudioFileClip(str(audio_path))
-            # Trim audio to video length
-            if audio_clip.duration > clip.duration:
-                # Handle both old and new moviepy API
+            for i, frame in enumerate(frames):
+                if frame.mode != 'RGB':
+                    frame = frame.convert('RGB')
+
+                frame_path = temp_dir / f"frame_{i:06d}.jpg"
+                frame.save(frame_path, "JPEG", quality=95)
+                frame_paths.append(str(frame_path))
+
+                # Progress
+                if i % 200 == 0:
+                    print(f"    {i}/{len(frames)} frames saved")
+
+                # Free memory
+                frames[i] = None
+
+            print(f"  Encoding video...")
+
+            # Create clip from file paths (memory efficient)
+            clip = ImageSequenceClip(frame_paths, fps=self.fps)
+
+            # Add audio if provided
+            audio_path = Path(audio) if audio else None
+            if audio_path and audio_path.exists():
+                audio_clip = AudioFileClip(str(audio_path))
+
+                if audio_clip.duration > clip.duration:
+                    try:
+                        audio_clip = audio_clip.subclipped(0, clip.duration)
+                    except AttributeError:
+                        audio_clip = audio_clip.subclip(0, clip.duration)
+
                 try:
-                    audio_clip = audio_clip.subclipped(0, clip.duration)
+                    clip = clip.with_audio(audio_clip)
                 except AttributeError:
-                    audio_clip = audio_clip.subclip(0, clip.duration)
-            # Use with_audio for newer moviepy, set_audio for older
-            try:
-                clip = clip.with_audio(audio_clip)
-            except AttributeError:
-                clip = clip.set_audio(audio_clip)
+                    clip = clip.set_audio(audio_clip)
 
-        # Write video
-        clip.write_videofile(
-            str(output_path),
-            codec='libx264',
-            audio_codec='aac' if audio_path else None,
-            fps=self.fps,
-            preset='medium',
-            logger=None
-        )
+            # Write video
+            clip.write_videofile(
+                str(output_path),
+                codec='libx264',
+                audio_codec='aac' if audio_path else None,
+                fps=self.fps,
+                preset='fast',
+                threads=4,
+                logger=None
+            )
 
-        # Clean up
-        clip.close()
-        if audio_path and audio_path.exists():
-            try:
-                audio_clip.close()
-            except:
-                pass
+            clip.close()
+
+        finally:
+            # Clean up temp frames
+            print(f"  Cleaning up temp files...")
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
 
         return output_path
 

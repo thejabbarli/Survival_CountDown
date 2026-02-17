@@ -23,6 +23,7 @@ from .scheduler import (
 from .strategies import (
     EliminationStrategy,
     RandomElimination,
+    ManualElimination,
     create_elimination_strategy,
     EliminationAnimation,
     create_animation,
@@ -106,6 +107,7 @@ __all__ = [
     # Strategies
     'EliminationStrategy',
     'RandomElimination',
+    'ManualElimination',
     'create_elimination_strategy',
     'EliminationAnimation',
     'create_animation',

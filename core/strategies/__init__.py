@@ -3,6 +3,7 @@
 from .elimination import (
     EliminationStrategy,
     RandomElimination,
+    ManualElimination,
     create_elimination_strategy
 )
 
@@ -20,6 +21,7 @@ __all__ = [
     # Elimination
     'EliminationStrategy',
     'RandomElimination',
+    'ManualElimination',
     'create_elimination_strategy',
     
     # Animation
