@@ -1,12 +1,12 @@
 # Video settings
 video:
-  width: 480       # 480 for preview, 1080 for full
-  height: 854      # 854 for preview, 1920 for full
-  fps: 30          # 30 for preview, 60 for full
+  width: 1080       # 480 for preview, 1080 for full
+  height: 1920      # 854 for preview, 1920 for full
+  fps: 60          # 30 for preview, 60 for full
 
 # Simulation settings
 simulation:
-  entity_count: 4  # 4 for test, 64 for real
+  entity_count: 36  # 4 for test, 64 for real
   seed: 40         # Same seed = same result (remove for random)
   elimination_interval: 30
   sudden_death:

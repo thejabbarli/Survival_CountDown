@@ -1,92 +1,123 @@
-"""Video export - frames to MP4."""
+"""Video exporter using MoviePy."""
 
-import os
-import tempfile
-import shutil
 from pathlib import Path
-from typing import List, Optional, TYPE_CHECKING
-
+from typing import List, Optional, Callable, Union
 from PIL import Image
-
-# Optional dependency - may not be installed
-try:
-    from moviepy import ImageSequenceClip, CompositeAudioClip
-    MOVIEPY_AVAILABLE = True
-except ImportError:
-    MOVIEPY_AVAILABLE = False
-    ImageSequenceClip = None
-    CompositeAudioClip = None
 
 
 class Exporter:
-    """Exports rendered frames to video file."""
+    """Exports frames to video."""
 
     def __init__(
         self,
         fps: int = 60,
-        output_dir: Path = Path("output"),
-        codec: str = "libx264"
+        output_dir: Path = Path("output")
     ):
         self.fps = fps
         self.output_dir = Path(output_dir)
-        self.codec = codec
-
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def export(
         self,
         frames: List[Image.Image],
-        filename: str,
-        audio: Optional['CompositeAudioClip'] = None
+        filename: str = "output.mp4",
+        audio: Optional[Union[Path, str]] = None,
+        progress_callback: Optional[Callable[[int, int], None]] = None
     ) -> Path:
-        """
-        Export frames to MP4 video.
-
+        """Export frames to video file.
+        
         Args:
             frames: List of PIL Image frames
-            filename: Output filename (without extension)
-            audio: Optional CompositeAudioClip to merge
-
+            filename: Output filename (adds .mp4 if missing)
+            audio: Path to audio file (optional)
+            progress_callback: Optional callback for progress updates
+            
         Returns:
-            Path to the exported video file
+            Path to output video file
         """
-        if not MOVIEPY_AVAILABLE:
-            raise ImportError(
-                "moviepy is required for video export. "
-                "Install with: pip install moviepy"
-            )
-        
-        output_path = self.output_dir / f"{filename}.mp4"
-        temp_dir = tempfile.mkdtemp()
-
+        # Try new moviepy import first, then fall back to old
         try:
-            # Save frames as images
-            frame_paths = []
-            for i, frame in enumerate(frames):
-                frame_path = os.path.join(temp_dir, f"frame_{i:06d}.png")
-                frame.save(frame_path)
-                frame_paths.append(frame_path)
+            from moviepy import ImageSequenceClip, AudioFileClip
+        except ImportError:
+            try:
+                from moviepy.editor import ImageSequenceClip, AudioFileClip
+            except ImportError:
+                raise ImportError(
+                    "moviepy is required for export. Install with: pip install moviepy\n"
+                    "If you have moviepy installed, try: pip install --upgrade moviepy"
+                )
 
-            # Create video clip
-            clip = ImageSequenceClip(frame_paths, fps=self.fps)
+        import numpy as np
 
-            # Add audio if provided
-            if audio is not None:
-                clip = clip.with_audio(audio)
+        # Ensure .mp4 extension
+        if not filename.endswith('.mp4'):
+            filename = filename + '.mp4'
+            
+        output_path = self.output_dir / filename
 
-            # Write video
-            clip.write_videofile(
-                str(output_path),
-                codec=self.codec,
-                audio_codec="aac" if audio is not None else None,
-                logger="bar"
-            )
+        # Convert PIL images to numpy arrays
+        frame_arrays = []
+        for i, frame in enumerate(frames):
+            if frame.mode != 'RGB':
+                frame = frame.convert('RGB')
+            frame_arrays.append(np.array(frame))
+            
+            if progress_callback and i % 10 == 0:
+                progress_callback(i, len(frames))
 
-            clip.close()
-            if audio is not None:
-                audio.close()
+        # Create video clip
+        clip = ImageSequenceClip(frame_arrays, fps=self.fps)
 
-        finally:
-            shutil.rmtree(temp_dir, ignore_errors=True)
+        # Add audio if provided
+        audio_path = Path(audio) if audio else None
+        if audio_path and audio_path.exists():
+            audio_clip = AudioFileClip(str(audio_path))
+            # Trim audio to video length
+            if audio_clip.duration > clip.duration:
+                # Handle both old and new moviepy API
+                try:
+                    audio_clip = audio_clip.subclipped(0, clip.duration)
+                except AttributeError:
+                    audio_clip = audio_clip.subclip(0, clip.duration)
+            # Use with_audio for newer moviepy, set_audio for older
+            try:
+                clip = clip.with_audio(audio_clip)
+            except AttributeError:
+                clip = clip.set_audio(audio_clip)
+
+        # Write video
+        clip.write_videofile(
+            str(output_path),
+            codec='libx264',
+            audio_codec='aac' if audio_path else None,
+            fps=self.fps,
+            preset='medium',
+            logger=None
+        )
+
+        # Clean up
+        clip.close()
+        if audio_path and audio_path.exists():
+            try:
+                audio_clip.close()
+            except:
+                pass
 
         return output_path
+
+    def export_frames_only(
+        self,
+        frames: List[Image.Image],
+        prefix: str = "frame"
+    ) -> List[Path]:
+        """Export frames as individual images."""
+        frames_dir = self.output_dir / "frames"
+        frames_dir.mkdir(exist_ok=True)
+
+        paths = []
+        for i, frame in enumerate(frames):
+            path = frames_dir / f"{prefix}_{i:05d}.png"
+            frame.save(path)
+            paths.append(path)
+
+        return paths

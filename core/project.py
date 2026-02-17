@@ -1,76 +1,82 @@
+"""Project loader - loads entity themes from folders."""
+
 import json
+import random
 from pathlib import Path
-from typing import List, Optional, Dict
+from typing import List, Optional
+
 from .entity import Entity
 
 
 class Project:
-    """A themed collection of entities (e.g., Countries, Marvel Characters)."""
+    """A themed collection of entities."""
 
     def __init__(self, path: Path):
         self.path = Path(path)
-        self.manifest_path = self.path / "manifest.json"
+        self.manifest = self._load_manifest()
+        self.name = self.manifest.get('name', self.path.name)
+        self.entities = self._load_entities()
 
-        if not self.manifest_path.exists():
-            raise FileNotFoundError(f"No manifest.json found in {self.path}")
+    def _load_manifest(self) -> dict:
+        """Load manifest.json from project folder."""
+        manifest_path = self.path / 'manifest.json'
+        if manifest_path.exists():
+            with open(manifest_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        return {}
 
-        self._load_manifest()
-
-    def _load_manifest(self) -> None:
-        """Load and parse the manifest.json file."""
-        with open(self.manifest_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-
-        self.name: str = data.get("name", self.path.name)
-        self.description: str = data.get("description", "")
-        self.author: str = data.get("author", "")
-        self.groups: Dict[str, List[str]] = data.get("groups", {})
-
-        # Load entities
-        self.entities: List[Entity] = []
-        for entity_data in data.get("entities", []):
+    def _load_entities(self) -> List[Entity]:
+        """Load all entities from manifest."""
+        entities = []
+        items = self.manifest.get('entities', [])
+        
+        for item in items:
             entity = Entity(
-                id=entity_data["id"],
-                name=entity_data["name"],
-                color=entity_data.get("color", "#CCCCCC"),
-                image_path=self._resolve_image(entity_data.get("image"))
+                id=item.get('id', item.get('name', '')),
+                name=item.get('name', ''),
+                color=item.get('color', '#808080'),
+                image_path=self._resolve_image(item.get('image'))
             )
-            self.entities.append(entity)
+            entities.append(entity)
+        
+        return entities
 
     def _resolve_image(self, image_name: Optional[str]) -> Optional[Path]:
-        """Convert image filename to full path, if it exists."""
+        """Resolve image path relative to project folder."""
         if image_name is None:
             return None
+        
         image_path = self.path / image_name
-        return image_path if image_path.exists() else None
+        if image_path.exists():
+            return image_path
+        
+        # Try common subfolders
+        for subfolder in ['images', 'flags', 'icons']:
+            image_path = self.path / subfolder / image_name
+            if image_path.exists():
+                return image_path
+        
+        return None
 
-    def get_entities(self, group: Optional[str] = None, count: Optional[int] = None) -> List[Entity]:
-        """
-        Get entities, optionally filtered by group and limited by count.
-        Returns fresh copies so simulation doesn't mutate the originals.
-        """
-        if group and group in self.groups:
-            entity_ids = set(self.groups[group])
-            entities = [e for e in self.entities if e.id in entity_ids]
-        else:
-            entities = self.entities.copy()
-
-        # Create fresh copies for simulation
-        copies = [
+    def get_entities(self, count: Optional[int] = None, shuffle: bool = True) -> List[Entity]:
+        """Get entities, optionally limited and shuffled."""
+        entities = [
             Entity(
                 id=e.id,
                 name=e.name,
                 color=e.color,
                 image_path=e.image_path
             )
-            for e in entities
+            for e in self.entities
         ]
-
-        if count and count < len(copies):
-            import random
-            copies = random.sample(copies, count)
-
-        return copies
+        
+        if shuffle:
+            random.shuffle(entities)
+        
+        if count is not None:
+            entities = entities[:count]
+        
+        return entities
 
     def __repr__(self) -> str:
         return f"Project({self.name}, {len(self.entities)} entities)"

@@ -8,58 +8,58 @@ from ..config import RenderConfig
 from ..fonts import FontLoader
 from ..canvas import CanvasFactory
 from ..drawers import EntityDrawer, CounterDrawer, WinnerDrawer
+from ..idle_animation import IdleAnimator
 from .game_renderer import GameFrameRenderer
 from .winner_renderer import WinnerFrameRenderer
 
-# Import base class - concrete animations imported where needed
 from ..animations import EliminationAnimation, ShrinkWithXAnimation
 
 
 class RendererFactory:
-    """Factory for creating configured renderer components.
-
-    Centralizes creation of all rendering-related objects:
-    - Layout
-    - Drawers (entity, counter, winner)
-    - Renderers (game, winner)
-
-    This follows the Factory pattern - clients don't need to know
-    how to construct complex renderer hierarchies.
-
-    Usage:
-        factory = RendererFactory(config, font_loader)
-        game_renderer = factory.create_game_renderer()
-        winner_renderer = factory.create_winner_renderer()
-    """
+    """Factory for creating configured renderer components."""
 
     def __init__(
-            self,
-            config: RenderConfig,
-            font_loader: FontLoader,
-            elimination_animation: Optional[EliminationAnimation] = None,
-            total_frames: int = 1
+        self,
+        config: RenderConfig,
+        font_loader: FontLoader,
+        elimination_animation: Optional[EliminationAnimation] = None,
+        idle_animator: Optional[IdleAnimator] = None,
+        total_frames: int = 1
     ):
         self.config = config
         self.font_loader = font_loader
         self.elimination_animation = elimination_animation or ShrinkWithXAnimation(config.animation)
         self.total_frames = total_frames
         self._canvas_factory = CanvasFactory(config.canvas, total_frames)
+        
+        if idle_animator is not None:
+            self._idle_animator = idle_animator
+        else:
+            anim_cfg = config.animation
+            self._idle_animator = IdleAnimator(
+                wave_speed=anim_cfg.idle_wave_speed,
+                wave_amount=anim_cfg.idle_wave_amount,
+                breathe_speed=anim_cfg.idle_breathe_speed,
+                breathe_amount=anim_cfg.idle_breathe_amount
+            )
+
+    @property
+    def idle_animator(self) -> IdleAnimator:
+        return self._idle_animator
 
     def create_entity_state(self) -> EntityState:
-        """Create EntityState with configured animation duration."""
         return EntityState(self.config.animation.elimination_duration)
 
     def create_layout(self) -> GridLayout:
-        """Create GridLayout with counter space reserved."""
         counter = self.config.counter
         layout = self.config.layout
         canvas = self.config.canvas
 
         reserved_top = counter.reserved_height if (
-                counter.enabled and counter.position == "top"
+            counter.enabled and counter.position == "top"
         ) else 0
         reserved_bottom = counter.reserved_height if (
-                counter.enabled and counter.position == "bottom"
+            counter.enabled and counter.position == "bottom"
         ) else 0
 
         return GridLayout(
@@ -72,15 +72,15 @@ class RendererFactory:
         )
 
     def create_entity_drawer(self) -> EntityDrawer:
-        """Create EntityDrawer with elimination animation."""
         return EntityDrawer(
             entity_config=self.config.entity,
             font=self.font_loader.get_small(),
-            elimination_animation=self.elimination_animation
+            elimination_animation=self.elimination_animation,
+            idle_animator=self._idle_animator,
+            idle_enabled=self.config.animation.idle_enabled
         )
 
     def create_counter_drawer(self) -> Optional[CounterDrawer]:
-        """Create CounterDrawer if enabled in config."""
         if not self.config.counter.enabled:
             return None
         return CounterDrawer(
@@ -90,17 +90,16 @@ class RendererFactory:
         )
 
     def create_winner_drawer(self) -> WinnerDrawer:
-        """Create WinnerDrawer for celebration screen."""
         return WinnerDrawer(
             canvas=self.config.canvas,
             config=self.config.winner,
             font=self.font_loader.get_large(),
             corner_radius=self.config.entity.corner_radius,
-            shadow_enabled=self.config.entity.shadow_enabled
+            shadow_enabled=self.config.entity.shadow_enabled,
+            idle_animator=self._idle_animator
         )
 
     def create_game_renderer(self) -> GameFrameRenderer:
-        """Create fully configured GameFrameRenderer."""
         return GameFrameRenderer(
             canvas_factory=self._canvas_factory,
             layout=self.create_layout(),
@@ -111,7 +110,6 @@ class RendererFactory:
         )
 
     def create_winner_renderer(self) -> WinnerFrameRenderer:
-        """Create WinnerFrameRenderer for victory screen."""
         return WinnerFrameRenderer(
             canvas_factory=self._canvas_factory,
             winner_drawer=self.create_winner_drawer()

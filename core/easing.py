@@ -42,24 +42,13 @@ def ease_out_elastic(t: float) -> float:
 
 
 def pulse(t: float, intensity: float = 0.3) -> float:
-    """
-    Heartbeat pulse. Returns scale multiplier.
-    t: 0 to 1 (animation progress)
-    Returns: 1.0 at rest, peaks at 1+intensity
-    """
-    # Quick up, slow down
+    """Heartbeat pulse. Returns scale multiplier."""
     if t < 0.2:
-        # Rise
         return 1 + intensity * ease_out_cubic(t / 0.2)
     else:
-        # Fall back
         return 1 + intensity * (1 - ease_out_cubic((t - 0.2) / 0.8))
 
 
 def flash_fade(t: float) -> float:
-    """
-    Flash that fades quickly.
-    Returns opacity 0-1.
-    """
-    # Instant on, fast fade
+    """Flash that fades quickly. Returns opacity 0-1."""
     return 1 - ease_out_cubic(t)

@@ -30,6 +30,7 @@ beats/
 
 # Assets (large files)
 assets/*/
+!assets/fonts/
 
 # Keep folder structure
 !assets/.gitkeep

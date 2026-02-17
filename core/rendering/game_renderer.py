@@ -16,21 +16,7 @@ from .effects_tracker import EffectsTracker
 
 
 class GameFrameRenderer:
-    """Renders game frames with entities, counter, and effects.
-
-    This is the main renderer for the elimination game. It:
-    - Creates the background canvas
-    - Draws all entities in their current state
-    - Draws the counter
-    - Applies effects (flash, etc.)
-
-    Usage:
-        renderer = GameFrameRenderer(...)
-        renderer.set_eliminations(events)
-
-        for frame in range(total_frames):
-            img = renderer.render(entities, frame)
-    """
+    """Renders game frames with entities, counter, and effects."""
 
     def __init__(
         self,
@@ -50,27 +36,14 @@ class GameFrameRenderer:
         self.effects_tracker = EffectsTracker(config)
 
     def set_eliminations(self, events: List[EliminationEvent]) -> None:
-        """Register elimination events for effect timing."""
         self.effects_tracker.set_eliminations(events)
 
     def render(self, entities: List[Entity], frame_num: int) -> Image.Image:
-        """Render a single game frame.
-
-        Args:
-            entities: All entities (alive and eliminated)
-            frame_num: Current frame number
-
-        Returns:
-            Rendered frame as PIL Image
-        """
-        # Create canvas with background
         img, draw = self.canvas_factory.create(frame=frame_num)
 
-        # Calculate grid layout
         alive_count = self.entity_state.count_alive(entities, frame_num)
         positions = self.layout.calculate_positions(len(entities))
 
-        # Draw entities
         for idx, (entity, pos) in enumerate(zip(entities, positions)):
             state = self.entity_state.get_state(entity, frame_num)
             progress = self.entity_state.get_elimination_progress(entity, frame_num)
@@ -86,12 +59,10 @@ class GameFrameRenderer:
                 total_entities=len(entities)
             )
 
-        # Draw counter
         if self.counter_drawer:
             pulse_progress = self.effects_tracker.get_pulse_progress(frame_num)
             self.counter_drawer.draw(draw, alive_count, pulse_progress)
 
-        # Apply screen flash effect
         flash_progress = self.effects_tracker.get_flash_progress(frame_num)
         if flash_progress is not None:
             img = apply_flash(img, flash_progress, self.config.animation.flash_intensity)

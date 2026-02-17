@@ -10,12 +10,10 @@ print("Testing imports...")
 
 # Core classes
 from core import Entity, Project, Simulation, EntityState
-
 print("✓ Core classes")
 
 # Simulation results
 from core import EliminationEvent, SimulationResult
-
 print("✓ Simulation results")
 
 # Scheduling
@@ -26,7 +24,6 @@ from core import (
     FrameListScheduler,
     create_scheduler
 )
-
 print("✓ Scheduling")
 
 # Strategies - Elimination
@@ -35,7 +32,6 @@ from core import (
     RandomElimination,
     create_elimination_strategy
 )
-
 print("✓ Elimination strategies")
 
 # Strategies - Animation
@@ -45,7 +41,6 @@ from core import (
     ShrinkWithXAnimation,
     create_animation
 )
-
 print("✓ Animation strategies")
 
 # Config
@@ -57,7 +52,6 @@ from core import (
     CounterDisplayConfig,
     EntityDisplayConfig,
 )
-
 print("✓ Config classes")
 
 # Rendering
@@ -67,7 +61,6 @@ from core import (
     WinnerFrameRenderer,
     RendererFactory,
 )
-
 print("✓ Rendering classes")
 
 # Test factory functions
@@ -86,6 +79,6 @@ entities = [
 victim = strategy.select(entities)
 print(f"✓ Strategy selected: {victim.name}")
 
-print("\n" + "=" * 50)
+print("\n" + "="*50)
 print("ALL IMPORTS WORKING! Refactoring successful.")
-print("=" * 50)
+print("="*50)

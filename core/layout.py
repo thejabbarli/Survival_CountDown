@@ -68,17 +68,14 @@ class GridLayout(BaseLayout):
         cols, rows = self._calculate_grid_dimensions(entity_count)
         cell_size = self._calculate_cell_size(cols, rows)
 
-        # Calculate grid total size
         grid_width = cols * cell_size + (cols - 1) * self.padding
         grid_height = rows * cell_size + (rows - 1) * self.padding
 
-        # Center the grid
         offset_x = (self.canvas_width - grid_width) // 2
         offset_y = self.reserved_top + self.margin + (
             self.canvas_height - self.reserved_top - self.reserved_bottom - (self.margin * 2) - grid_height
         ) // 2
 
-        # Generate positions
         positions = []
         for idx in range(entity_count):
             col = idx % cols

@@ -1,10 +1,7 @@
-"""Entity state tracking for rendering.
+"""Entity state management for rendering.
 
-This module determines the visual state of entities at any given frame.
-It's used by the renderer to know HOW to draw each entity.
-
-This is rendering/display logic, separate from game logic (Simulation).
-The simulation marks entities as eliminated; this interprets that for display.
+EntityState determines the visual state of entities based on frame numbers.
+This is rendering logic, separate from game logic in Simulation.
 """
 
 from typing import List, TYPE_CHECKING
@@ -14,105 +11,96 @@ if TYPE_CHECKING:
 
 
 class EntityState:
-    """Determines entity visual state at a given frame.
-
+    """Determines entity visual state based on frame timing.
+    
     States:
-    - ALIVE: Entity is active, draw normally
-    - ELIMINATING: Entity is in elimination animation
-    - GONE: Entity has finished animating, don't draw
-
-    Usage:
-        state = EntityState(animation_duration=20)
-
-        for entity in entities:
-            visual_state = state.get_state(entity, current_frame)
-            if visual_state == EntityState.ALIVE:
-                draw_normal(entity)
-            elif visual_state == EntityState.ELIMINATING:
-                progress = state.get_elimination_progress(entity, current_frame)
-                draw_eliminating(entity, progress)
-            # GONE = don't draw
+    - ALIVE: Normal, interactive
+    - ELIMINATING: Playing death animation
+    - GONE: Fully removed from view
     """
-
+    
     ALIVE = "alive"
     ELIMINATING = "eliminating"
     GONE = "gone"
-
-    def __init__(self, animation_duration: int = 20):
+    
+    def __init__(self, elimination_duration: int = 20):
         """
         Args:
-            animation_duration: Frames for elimination animation to complete
+            elimination_duration: Frames for elimination animation
         """
-        self.animation_duration = animation_duration
-
+        self.elimination_duration = elimination_duration
+    
     def get_state(self, entity: 'Entity', frame_num: int) -> str:
-        """Determine entity visual state at a specific frame.
-
+        """Get entity's visual state at given frame.
+        
         Args:
             entity: The entity to check
             frame_num: Current frame number
-
+            
         Returns:
-            One of ALIVE, ELIMINATING, or GONE
+            One of: ALIVE, ELIMINATING, GONE
         """
+        if entity.alive:
+            return self.ALIVE
+            
         if entity.eliminated_at is None:
-            return self.ALIVE
-
-        if frame_num < entity.eliminated_at:
-            return self.ALIVE
-
+            return self.GONE
+            
         frames_since = frame_num - entity.eliminated_at
-        if frames_since < self.animation_duration:
+        
+        if frames_since < 0:
+            return self.ALIVE
+        elif frames_since < self.elimination_duration:
             return self.ELIMINATING
-
-        return self.GONE
-
+        else:
+            return self.GONE
+    
     def get_elimination_progress(self, entity: 'Entity', frame_num: int) -> float:
-        """Get animation progress (0.0 to 1.0) for eliminating entity.
-
+        """Get elimination animation progress (0.0 to 1.0).
+        
         Args:
-            entity: The entity being eliminated
+            entity: The entity to check
             frame_num: Current frame number
-
+            
         Returns:
-            0.0 at start of animation, 1.0 when complete
+            Progress from 0.0 (just eliminated) to 1.0 (animation complete)
         """
-        if entity.eliminated_at is None or frame_num < entity.eliminated_at:
+        if entity.alive or entity.eliminated_at is None:
             return 0.0
-
+            
         frames_since = frame_num - entity.eliminated_at
-        return min(1.0, frames_since / self.animation_duration)
-
+        
+        if frames_since < 0:
+            return 0.0
+        elif frames_since >= self.elimination_duration:
+            return 1.0
+        else:
+            return frames_since / self.elimination_duration
+    
     def count_alive(self, entities: List['Entity'], frame_num: int) -> int:
-        """Count entities visually alive at a specific frame.
-
-        Note: This counts entities that APPEAR alive (not yet animating out),
-        which may differ from entities that ARE alive in game logic during
-        the animation period.
-
+        """Count entities that appear alive at given frame.
+        
         Args:
             entities: List of all entities
             frame_num: Current frame number
-
+            
         Returns:
-            Number of entities in ALIVE state
+            Number of entities in ALIVE state (not eliminating, not gone)
         """
         return sum(
             1 for e in entities
             if self.get_state(e, frame_num) == self.ALIVE
         )
-
+    
     def is_any_eliminating(self, entities: List['Entity'], frame_num: int) -> bool:
-        """Check if any entity is currently in elimination animation.
-
-        Useful for effects that trigger during eliminations.
-
+        """Check if any entity is currently being eliminated.
+        
         Args:
             entities: List of all entities
             frame_num: Current frame number
-
+            
         Returns:
-            True if at least one entity is ELIMINATING
+            True if any entity is in ELIMINATING state
         """
         return any(
             self.get_state(e, frame_num) == self.ELIMINATING

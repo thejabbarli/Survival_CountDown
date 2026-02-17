@@ -8,14 +8,7 @@ from ..drawers import WinnerDrawer
 
 
 class WinnerFrameRenderer:
-    """Renders the winner celebration screen.
-
-    Shows the winning entity prominently with celebration text.
-
-    Usage:
-        renderer = WinnerFrameRenderer(canvas_factory, winner_drawer)
-        img = renderer.render(winner, frame_num)
-    """
+    """Renders the winner celebration screen."""
 
     def __init__(
             self,
@@ -26,15 +19,6 @@ class WinnerFrameRenderer:
         self.winner_drawer = winner_drawer
 
     def render(self, winner: Entity, frame_num: int = 0) -> Image.Image:
-        """Render the winner celebration frame.
-
-        Args:
-            winner: The winning entity
-            frame_num: Frame number (for animated backgrounds)
-
-        Returns:
-            Rendered frame as PIL Image
-        """
         img, draw = self.canvas_factory.create(frame=frame_num)
-        self.winner_drawer.draw(draw, winner)
+        self.winner_drawer.draw(draw, winner, frame_num)
         return img

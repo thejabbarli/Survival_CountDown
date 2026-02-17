@@ -2,29 +2,6 @@
 
 This module provides all the building blocks for generating
 survival countdown videos.
-
-Main classes:
-- Entity: A single contestant
-- Project: A themed collection of entities
-- Simulation: Runs the survival game logic
-- Renderer: Generates video frames
-- Exporter: Saves frames to MP4
-- AudioBuilder: Creates audio track
-
-Scheduling (flexible timing):
-- EliminationScheduler: Base class for timing strategies
-- IntervalScheduler: Default interval-based timing
-- BeatSyncScheduler: Sync eliminations to music beats
-- FrameListScheduler: Custom frame list
-
-Strategies (swappable behaviors):
-- EliminationStrategy: WHO gets eliminated
-- EliminationAnimation: HOW elimination looks
-
-Configuration:
-- RenderConfig: Aggregates all settings
-- AudioConfig: Audio mode and settings
-- SchedulerConfig: Timing settings
 """
 
 # Core classes
@@ -44,11 +21,9 @@ from .scheduler import (
 
 # Strategies
 from .strategies import (
-    # Elimination
     EliminationStrategy,
     RandomElimination,
     create_elimination_strategy,
-    # Animation
     EliminationAnimation,
     create_animation,
 )
@@ -74,7 +49,7 @@ from .config import (
 from .fonts import FontLoader
 from .canvas import CanvasFactory
 
-# Animation implementations (also available via strategies.animation)
+# Animation implementations
 from .animations import (
     ShrinkWithXAnimation,
     FadeOutAnimation,
@@ -82,6 +57,9 @@ from .animations import (
     ModernFadeAnimation,
     RedPulseFadeAnimation
 )
+
+# Idle animation
+from .idle_animation import IdleAnimator, get_idle_animator, set_idle_animator
 
 # Drawers
 from .drawers import EntityDrawer, CounterDrawer, WinnerDrawer
@@ -99,7 +77,7 @@ from .rendering import (
 from .exporter import Exporter
 from .image_cache import ImageCache, get_image_cache
 
-# Audio subsystem
+# Audio
 from .audio import (
     BeatDetector,
     BeatDetectionResult,
@@ -125,12 +103,10 @@ __all__ = [
     'FrameListScheduler',
     'create_scheduler',
 
-    # Strategies - Elimination
+    # Strategies
     'EliminationStrategy',
     'RandomElimination',
     'create_elimination_strategy',
-
-    # Strategies - Animation
     'EliminationAnimation',
     'create_animation',
     'ShrinkWithXAnimation',
@@ -138,6 +114,11 @@ __all__ = [
     'InstantRemoveAnimation',
     'ModernFadeAnimation',
     'RedPulseFadeAnimation',
+
+    # Idle Animation
+    'IdleAnimator',
+    'get_idle_animator',
+    'set_idle_animator',
 
     # Layout
     'GridLayout',

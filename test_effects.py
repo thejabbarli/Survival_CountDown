@@ -130,7 +130,7 @@ elif ANIMATED_GRADIENT:
 else:
     bg_type = "static"
 
-filename = f"test_{ENTITY_COUNT}ent_{quality}_{bg_type}_seed{SEED}_{date_str}_{time_str}"
+filename = f"test_{ENTITY_COUNT}ent_{quality}_{bg_type}_seed{SEED}_{date_str}_{time_str}.mp4"
 
 # Export
 if TRANSPARENT_BG:

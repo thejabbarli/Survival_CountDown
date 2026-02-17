@@ -1,4 +1,4 @@
-"""Counter drawer with centered pulse animation."""
+"""Counter drawer with pulse animation."""
 
 from PIL import ImageDraw, ImageFont, Image
 
@@ -7,7 +7,7 @@ from ..easing import pulse
 
 
 class CounterDrawer:
-    """Draws the remaining count with optional pulse from center."""
+    """Draws the remaining count with optional pulse."""
 
     def __init__(
             self,
@@ -28,7 +28,6 @@ class CounterDrawer:
     ) -> None:
         text = self.config.format_string.format(count=count)
 
-        # Get base position (centered)
         bbox = target.textbbox((0, 0), text, font=self.font)
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
@@ -39,31 +38,23 @@ class CounterDrawer:
         else:
             base_y = self.canvas.height - self.config.margin_bottom
 
-        # Calculate scale for pulse
         scale = 1.0
         if pulse_progress is not None and self.config.pulse_on_elimination:
             scale = pulse(pulse_progress, self.config.pulse_scale - 1)
 
         if scale != 1.0 and scale > 0.5:
-            # Render text to separate image, scale it, paste centered
-            # This gives true centered scaling
-
             padding = 20
             text_img = Image.new('RGBA', (text_width + padding * 2, text_height + padding * 2), (0, 0, 0, 0))
             text_draw = ImageDraw.Draw(text_img)
             text_draw.text((padding, padding), text, fill=self.config.color, font=self.font)
 
-            # Scale from center
             new_w = int(text_img.width * scale)
             new_h = int(text_img.height * scale)
             scaled = text_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
 
-            # Calculate position to keep centered
             paste_x = base_x - padding - (new_w - text_img.width) // 2
             paste_y = base_y - padding - (new_h - text_img.height) // 2
 
-            # Paste onto main image
             target._image.paste(scaled, (paste_x, paste_y), scaled)
         else:
-            # Normal draw
             target.text((base_x, base_y), text, fill=self.config.color, font=self.font)

@@ -19,14 +19,12 @@ class CanvasFactory:
         """Create static background (cached)."""
         cfg = self.config
 
-        # Special modes
         if cfg.greenscreen:
             return Image.new('RGB', (cfg.width, cfg.height), "#00FF00")
 
         if cfg.transparent:
             return Image.new('RGBA', (cfg.width, cfg.height), (0, 0, 0, 0))
 
-        # Custom image
         if cfg.background_image:
             path = Path(cfg.background_image)
             if path.exists():
@@ -34,7 +32,6 @@ class CanvasFactory:
                 img = img.resize((cfg.width, cfg.height), Image.Resampling.LANCZOS)
                 return img
 
-        # Static gradient
         if cfg.gradient_enabled and not cfg.animated_gradient:
             from .effects import create_gradient_fast, add_vignette
             img = create_gradient_fast(
@@ -46,7 +43,6 @@ class CanvasFactory:
                 img = add_vignette(img, cfg.vignette_strength)
             return img
 
-        # Solid color
         return Image.new('RGB', (cfg.width, cfg.height), cfg.background_color)
 
     def _create_animated_background(self, frame: int) -> Image.Image:
@@ -76,10 +72,8 @@ class CanvasFactory:
         cfg = self.config
 
         if cfg.animated_gradient and not cfg.greenscreen and not cfg.transparent:
-            # Animated - create fresh each frame
             img = self._create_animated_background(frame)
         else:
-            # Static - use cache
             if self._static_bg_cache is None:
                 self._static_bg_cache = self._create_static_background()
             img = self._static_bg_cache.copy()
