@@ -1,21 +1,30 @@
 """Simulation logic - runs the survival game.
 
 The simulation handles:
-- Random entity selection for elimination
+- Entity elimination via pluggable strategy
 - Event logging with frame numbers
 - Winner determination
 
-Timing is delegated to EliminationScheduler, making the simulation
-agnostic to HOW timing is determined (intervals, beats, custom).
+Timing is delegated to EliminationScheduler.
+Selection is delegated to EliminationStrategy.
+
+This keeps the simulation focused on orchestration, not implementation details.
 """
 
 import random
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 
 from .entity import Entity
 from .scheduler import EliminationScheduler, IntervalScheduler, create_scheduler
 from .config import SchedulerConfig
+
+# EntityState moved to its own module (it's rendering logic, not game logic)
+# Re-export for backward compatibility
+from .entity_state import EntityState
+
+if TYPE_CHECKING:
+    from .strategies.elimination import EliminationStrategy
 
 
 @dataclass
@@ -36,60 +45,27 @@ class SimulationResult:
     elimination_frames: List[int]  # for audio sync
 
 
-class EntityState:
-    """Determines entity state at a given frame. This is game logic."""
-
-    ALIVE = "alive"
-    ELIMINATING = "eliminating"
-    GONE = "gone"
-
-    def __init__(self, animation_duration: int = 20):
-        self.animation_duration = animation_duration
-
-    def get_state(self, entity: Entity, frame_num: int) -> str:
-        """Determine entity state at a specific frame."""
-        if entity.eliminated_at is None:
-            return self.ALIVE
-
-        if frame_num < entity.eliminated_at:
-            return self.ALIVE
-
-        frames_since = frame_num - entity.eliminated_at
-        if frames_since < self.animation_duration:
-            return self.ELIMINATING
-
-        return self.GONE
-
-    def get_elimination_progress(self, entity: Entity, frame_num: int) -> float:
-        """Get animation progress (0.0 to 1.0) for eliminating entity."""
-        if entity.eliminated_at is None or frame_num < entity.eliminated_at:
-            return 0.0
-
-        frames_since = frame_num - entity.eliminated_at
-        return min(1.0, frames_since / self.animation_duration)
-
-    def count_alive(self, entities: List[Entity], frame_num: int) -> int:
-        """Count entities alive at a specific frame."""
-        return sum(
-            1 for e in entities
-            if self.get_state(e, frame_num) == self.ALIVE
-        )
-
-
 class Simulation:
     """
     Runs the survival game logic.
-    
+
     Timing is handled by an EliminationScheduler, which can be:
     - IntervalScheduler (default, with sudden death)
     - BeatSyncScheduler (sync to music beats)
     - FrameListScheduler (custom frame list)
+
+    Selection is handled by an EliminationStrategy, which can be:
+    - RandomElimination (default, equal probability)
+    - WeightedElimination (probability based on weight)
+    - SeededElimination (guaranteed positions)
+    - ManualElimination (full control)
     """
 
     def __init__(
         self,
         entities: List[Entity],
         scheduler: Optional[EliminationScheduler] = None,
+        elimination_strategy: Optional['EliminationStrategy'] = None,
         fps: int = 60,
         winner_celebration_seconds: float = 2.0,
         # Legacy parameters for backward compatibility
@@ -106,7 +82,10 @@ class Simulation:
         self.entities = entities
         self.fps = fps
         self.winner_celebration_frames = int(winner_celebration_seconds * fps)
-        
+
+        # Strategy for WHO gets eliminated (defaults to random)
+        self._elimination_strategy = elimination_strategy
+
         # Use provided scheduler or create from legacy params
         if scheduler is not None:
             self.scheduler = scheduler
@@ -121,6 +100,14 @@ class Simulation:
             )
             self.scheduler = IntervalScheduler(len(entities), config)
 
+    def _get_elimination_strategy(self) -> 'EliminationStrategy':
+        """Lazy load default strategy if none provided."""
+        if self._elimination_strategy is None:
+            # Import here to avoid circular imports
+            from .strategies.elimination import RandomElimination
+            self._elimination_strategy = RandomElimination()
+        return self._elimination_strategy
+
     def _get_alive(self) -> List[Entity]:
         """Get list of entities still alive."""
         return [e for e in self.entities if e.alive]
@@ -128,19 +115,23 @@ class Simulation:
     def run(self, seed: Optional[int] = None) -> SimulationResult:
         """
         Run the full simulation.
-        
+
         Args:
             seed: Random seed for reproducibility
-            
+
         Returns:
             SimulationResult with winner, events, and frame info
         """
         if seed is not None:
             random.seed(seed)
 
+        # Get strategy and reset its state
+        strategy = self._get_elimination_strategy()
+        strategy.reset()
+
         # Get elimination frames from scheduler
         elimination_frames = self.scheduler.get_elimination_frames()
-        
+
         events: List[EliminationEvent] = []
 
         for frame in elimination_frames:
@@ -149,20 +140,26 @@ class Simulation:
             if len(alive) <= 1:
                 break
 
-            victim = random.choice(alive)
+            # Use strategy instead of hardcoded random.choice
+            victim = strategy.select(alive)
             victim.eliminate(frame)
+
+            remaining = len(alive) - 1
+
+            # Notify strategy of elimination (for dynamic adjustments)
+            strategy.on_elimination(victim, remaining)
 
             event = EliminationEvent(
                 frame=frame,
                 entity_id=victim.id,
                 entity_name=victim.name,
-                entities_remaining=len(alive) - 1
+                entities_remaining=remaining
             )
             events.append(event)
 
         # Get winner
         winner = self._get_alive()[0]
-        
+
         # Calculate total frames
         total_frames = self.scheduler.get_total_frames(self.winner_celebration_frames)
 
@@ -177,20 +174,22 @@ class Simulation:
 def run_simulation(
     entities: List[Entity],
     scheduler: Optional[EliminationScheduler] = None,
+    elimination_strategy: Optional['EliminationStrategy'] = None,
     beat_frames: Optional[List[int]] = None,
     fps: int = 60,
     seed: Optional[int] = None
 ) -> SimulationResult:
     """
     Convenience function to run a simulation.
-    
+
     Args:
         entities: List of entities to compete
         scheduler: Optional custom scheduler
+        elimination_strategy: Optional custom elimination strategy
         beat_frames: Optional beat frames for beat sync mode
         fps: Frame rate
         seed: Random seed
-        
+
     Returns:
         SimulationResult
     """
@@ -199,6 +198,11 @@ def run_simulation(
             entity_count=len(entities),
             beat_frames=beat_frames
         )
-    
-    sim = Simulation(entities, scheduler=scheduler, fps=fps)
+
+    sim = Simulation(
+        entities,
+        scheduler=scheduler,
+        elimination_strategy=elimination_strategy,
+        fps=fps
+    )
     return sim.run(seed=seed)

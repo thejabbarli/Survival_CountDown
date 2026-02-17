@@ -17,15 +17,23 @@ Scheduling (flexible timing):
 - BeatSyncScheduler: Sync eliminations to music beats
 - FrameListScheduler: Custom frame list
 
+Strategies (swappable behaviors):
+- EliminationStrategy: WHO gets eliminated
+- EliminationAnimation: HOW elimination looks
+
 Configuration:
 - RenderConfig: Aggregates all settings
 - AudioConfig: Audio mode and settings
 - SchedulerConfig: Timing settings
 """
 
+# Core classes
 from .entity import Entity
 from .project import Project
-from .simulation import Simulation, EliminationEvent, SimulationResult, EntityState
+from .entity_state import EntityState
+from .simulation import Simulation, EliminationEvent, SimulationResult
+
+# Scheduling
 from .scheduler import (
     EliminationScheduler,
     IntervalScheduler,
@@ -33,7 +41,22 @@ from .scheduler import (
     FrameListScheduler,
     create_scheduler
 )
+
+# Strategies
+from .strategies import (
+    # Elimination
+    EliminationStrategy,
+    RandomElimination,
+    create_elimination_strategy,
+    # Animation
+    EliminationAnimation,
+    create_animation,
+)
+
+# Layout
 from .layout import GridLayout, BaseLayout, CellPosition
+
+# Config
 from .config import (
     RenderConfig,
     CanvasConfig,
@@ -46,18 +69,33 @@ from .config import (
     AudioConfig,
     SchedulerConfig
 )
+
+# Rendering infrastructure
 from .fonts import FontLoader
 from .canvas import CanvasFactory
+
+# Animation implementations (also available via strategies.animation)
 from .animations import (
-    EliminationAnimation,
     ShrinkWithXAnimation,
     FadeOutAnimation,
     InstantRemoveAnimation,
     ModernFadeAnimation,
     RedPulseFadeAnimation
 )
+
+# Drawers
 from .drawers import EntityDrawer, CounterDrawer, WinnerDrawer
-from .renderer import Renderer, GameFrameRenderer, WinnerFrameRenderer, RendererFactory
+
+# Rendering
+from .rendering import (
+    Renderer,
+    GameFrameRenderer,
+    WinnerFrameRenderer,
+    RendererFactory,
+    EffectsTracker
+)
+
+# Export
 from .exporter import Exporter
 from .image_cache import ImageCache, get_image_cache
 
@@ -87,6 +125,20 @@ __all__ = [
     'FrameListScheduler',
     'create_scheduler',
 
+    # Strategies - Elimination
+    'EliminationStrategy',
+    'RandomElimination',
+    'create_elimination_strategy',
+
+    # Strategies - Animation
+    'EliminationAnimation',
+    'create_animation',
+    'ShrinkWithXAnimation',
+    'FadeOutAnimation',
+    'InstantRemoveAnimation',
+    'ModernFadeAnimation',
+    'RedPulseFadeAnimation',
+
     # Layout
     'GridLayout',
     'BaseLayout',
@@ -107,12 +159,6 @@ __all__ = [
     # Rendering
     'FontLoader',
     'CanvasFactory',
-    'EliminationAnimation',
-    'ShrinkWithXAnimation',
-    'FadeOutAnimation',
-    'InstantRemoveAnimation',
-    'ModernFadeAnimation',
-    'RedPulseFadeAnimation',
     'EntityDrawer',
     'CounterDrawer',
     'WinnerDrawer',
@@ -120,6 +166,7 @@ __all__ = [
     'GameFrameRenderer',
     'WinnerFrameRenderer',
     'RendererFactory',
+    'EffectsTracker',
     'Exporter',
     'ImageCache',
     'get_image_cache',
