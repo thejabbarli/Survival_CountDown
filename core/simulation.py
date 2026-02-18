@@ -1,11 +1,17 @@
-"""Simulation - game logic for eliminations."""
+"""Simulation - game logic for eliminations. DEBUG VERSION"""
 
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional, TYPE_CHECKING
 
 from .entity import Entity
 from .entity_state import EntityState
+
+from .spotlight import (
+    SpotlightConfig,
+    SpotlightEvent,
+    create_spotlight_generator,
+)
 
 if TYPE_CHECKING:
     from .scheduler import EliminationScheduler
@@ -27,6 +33,7 @@ class SimulationResult:
     winner: Entity
     total_frames: int
     seed: Optional[int]
+    spotlight_events: List[SpotlightEvent] = field(default_factory=list)
 
 
 class Simulation:
@@ -38,6 +45,7 @@ class Simulation:
         scheduler: 'EliminationScheduler' = None,
         fps: int = 60,
         elimination_strategy: Optional['EliminationStrategy'] = None,
+        spotlight_config: Optional[SpotlightConfig] = None,
         # Legacy parameters (used if scheduler is None)
         elimination_interval: int = 30,
         sudden_death_enabled: bool = True,
@@ -49,12 +57,12 @@ class Simulation:
         self.entities = entities
         self.fps = fps
         self.winner_celebration_frames = fps * 2  # 2 seconds
-        
+
         # Create scheduler if not provided (backward compatibility)
         if scheduler is None:
             from .scheduler import IntervalScheduler
             from .config import SchedulerConfig
-            
+
             config = SchedulerConfig(
                 elimination_interval=elimination_interval,
                 initial_delay=fps,  # 1 second delay
@@ -65,60 +73,137 @@ class Simulation:
                 sudden_death_multiplier_2=sudden_death_multiplier_2,
             )
             scheduler = IntervalScheduler(len(entities), config)
-        
+
         self.scheduler = scheduler
-        
+
         # Elimination strategy (defaults to random)
         if elimination_strategy is None:
             from .strategies.elimination import RandomElimination
             elimination_strategy = RandomElimination()
         self._elimination_strategy = elimination_strategy
 
+        # Spotlight system
+        self._spotlight_config = spotlight_config or SpotlightConfig(enabled=False)
+        self._spotlight_generator = create_spotlight_generator(
+            self._spotlight_config,
+            len(entities)
+        )
+
     def run(self, seed: Optional[int] = None) -> SimulationResult:
         """Run the simulation and return results."""
         if seed is not None:
             random.seed(seed)
-        
+
         # Reset strategy
         self._elimination_strategy.reset()
-        
+
         # Reset entities
         for entity in self.entities:
             entity.alive = True
             entity.eliminated_at = None
 
         events = []
-        elimination_frames = self.scheduler.get_elimination_frames()
+        spotlight_events = []
 
-        for frame in elimination_frames:
-            alive = [e for e in self.entities if e.alive]
-            
-            if len(alive) <= 1:
-                break
+        # Check if spotlight is enabled
+        spotlight_enabled = self._spotlight_config.enabled
+        print(f"[DEBUG SIM] Spotlight enabled: {spotlight_enabled}")
 
-            # Use strategy to select victim
-            victim = self._elimination_strategy.select(alive)
-            victim.eliminate(frame)
-            
-            remaining = len(alive) - 1
-            events.append(EliminationEvent(
-                entity=victim,
-                frame=frame,
-                remaining=remaining
-            ))
-            
-            # Notify strategy
-            self._elimination_strategy.on_elimination(victim, remaining)
+        if spotlight_enabled:
+            # Spotlight mode: dynamic timing based on spotlight + elimination duration
+            current_frame = self.fps  # 1 second initial delay
+            elimination_duration = int(self.fps * 0.5)  # 0.5 seconds for death animation
+            elimination_index = 0
+
+            while True:
+                alive = [e for e in self.entities if e.alive]
+
+                if len(alive) <= 1:
+                    break
+
+                remaining = len(alive)
+
+                # Select victim
+                victim = self._elimination_strategy.select(alive)
+                alive_ids = [e.id for e in alive]
+
+                # Generate spotlight sequence
+                spotlight_seq = self._spotlight_generator.generate(
+                    victim_id=victim.id,
+                    alive_ids=alive_ids,
+                    remaining_count=remaining
+                )
+
+                print(f"[DEBUG SIM] Elim #{elimination_index}: victim={victim.id}, spotlight_frames={spotlight_seq.total_frames}, stops={len(spotlight_seq.stops)}")
+
+                # Log spotlight event
+                if spotlight_seq.total_frames > 0:
+                    spot_event = SpotlightEvent(
+                        start_frame=current_frame,
+                        sequence=spotlight_seq,
+                        elimination_index=elimination_index
+                    )
+                    spotlight_events.append(spot_event)
+                    print(f"[DEBUG SIM]   -> SpotlightEvent: start={spot_event.start_frame}, end={spot_event.end_frame}")
+                    for stop in spotlight_seq.stops:
+                        print(f"[DEBUG SIM]      stop: {stop.entity_id} frames {stop.start_frame}-{stop.end_frame} victim={stop.is_victim}")
+
+                # Elimination happens AFTER spotlight
+                elim_frame = current_frame + spotlight_seq.total_frames
+                victim.eliminate(elim_frame)
+
+                events.append(EliminationEvent(
+                    entity=victim,
+                    frame=elim_frame,
+                    remaining=remaining - 1
+                ))
+
+                # Notify strategy
+                self._elimination_strategy.on_elimination(victim, remaining - 1)
+
+                # Move to next elimination
+                current_frame = elim_frame + elimination_duration
+                elimination_index += 1
+
+            # Calculate total frames
+            total_frames = current_frame + self.winner_celebration_frames
+
+        else:
+            # Original mode: use scheduler for timing
+            elimination_frames = self.scheduler.get_elimination_frames()
+
+            for frame in elimination_frames:
+                alive = [e for e in self.entities if e.alive]
+
+                if len(alive) <= 1:
+                    break
+
+                # Use strategy to select victim
+                victim = self._elimination_strategy.select(alive)
+                victim.eliminate(frame)
+
+                remaining = len(alive) - 1
+                events.append(EliminationEvent(
+                    entity=victim,
+                    frame=frame,
+                    remaining=remaining
+                ))
+
+                # Notify strategy
+                self._elimination_strategy.on_elimination(victim, remaining)
+
+            # Calculate total frames
+            total_frames = self.scheduler.get_total_frames(self.winner_celebration_frames)
 
         # Find winner
         winner = next(e for e in self.entities if e.alive)
 
-        # Calculate total frames
-        total_frames = self.scheduler.get_total_frames(self.winner_celebration_frames)
+        print(f"[DEBUG SIM] Total spotlight events: {len(spotlight_events)}")
 
         return SimulationResult(
             events=events,
             winner=winner,
             total_frames=total_frames,
-            seed=seed
+            seed=seed,
+            spotlight_events=spotlight_events
         )

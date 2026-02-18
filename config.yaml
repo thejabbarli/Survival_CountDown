@@ -1,14 +1,35 @@
-# Video settings
-video:
-  width: 1080       # 480 for preview, 1080 for full
-  height: 1920      # 854 for preview, 1920 for full
-  fps: 60          # 30 for preview, 60 for full
+# ============================================
+# SURVIVAL COUNTDOWN - CONFIG WITH SLOT MACHINE SPOTLIGHT
+# ============================================
 
-# Simulation settings
+video:
+  width: 480 #480
+  height: 854 #854
+  fps: 30
+
 simulation:
-  entity_count: 64  # 4 for test, 64 for real
-  seed: 40         # Same seed = same result (remove for random)
+  entity_count: 25
+  entity_ids: [
+    "us", "id", "br", "mx", "vn",
+    "ph", "ru", "th", "pk", "gb",
+    "fr", "de", "jp", "it", "sa",
+    "eg", "es", "pl", "my", "co",
+    "kr", "ar", "tr", "in", "gr"
+  ]
+
+  elimination_mode: manual
+  elimination_order: [
+    "pl", "co", "my", "eg", "sa",
+    "it", "es", "kr", "ar", "vn",
+    "th", "de", "fr", "gb", "jp",
+    "mx", "ph", "pk", "ru", "br",
+    "id", "us", "gr", "in", "tr"
+  ]
+  use_names_for_elimination: false
+
+  seed: 40
   elimination_interval: 30
+
   sudden_death:
     enabled: true
     threshold_1: 10
@@ -16,9 +37,7 @@ simulation:
     threshold_2: 5
     multiplier_2: 4
 
-# Visual settings
 visuals:
-  # Gradient background
   gradient_enabled: true
   animated_gradient: true
   gradient_top: "#1e1e2e"
@@ -26,50 +45,73 @@ visuals:
   gradient_top_end: "#2e1a3e"
   gradient_bottom_end: "#0a1a1f"
   gradient_cycle_speed: 2.0
-
-  # Vignette
   vignette_enabled: true
   vignette_strength: 0.4
-
-  # Entity cards
   corner_radius: 12
   shadow_enabled: true
   shadow_blur: 10
   shadow_opacity: 100
   cell_padding: 10
-
-  # Idle animation (wave/breathing)
   idle_enabled: true
   idle_wave_speed: 0.08
   idle_wave_amount: 4.0
   idle_breathe_speed: 0.04
   idle_breathe_amount: 0.03
-
-  # Counter
   show_counter: true
   counter_position: top
-  counter_format: "{count}"  # Just number, no "remaining"
-
-  # Special modes (pick one or none)
+  counter_format: "{count}"
   greenscreen: false
   transparent: false
 
-# Audio settings
+# Spotlight - slot machine style
+spotlight:
+  enabled: true
+
+  visual:
+    dim_opacity: 0.5          # Dimmer to make spotlight pop more
+    active_scale: 1.12        # Bigger pop when spotlit
+    locked_scale: 1.15        # Even bigger when locked
+    glow_enabled: true        # Now draws border, not blob
+    glow_radius: 15           # Not used anymore (border instead)
+    glow_color: "#FFFFFF"     # White border (cleaner than gold)
+    glow_opacity: 255
+
+  sound:
+    enabled: false
+
+  phases:
+    # CHAOS: Fast scan, ~half rotation
+    chaos:
+      until_remaining_percent: 60
+      decoy_count: [3, 6]           # Ignored now (generator calculates)
+      frames_per_stop: [2, 3]       # Very fast
+      lock_frames: 3
+
+    # GRIND: Full rotation + extra
+    grind:
+      until_remaining_percent: 20
+      decoy_count: [5, 10]          # Ignored
+      frames_per_stop: [3, 6]       # Medium speed
+      lock_frames: 5
+
+    # DUEL: Multiple rotations, dramatic slowdown
+    duel:
+      until_remaining_percent: 0
+      decoy_count: [10, 20]         # Ignored
+      frames_per_stop: [4, 10]      # Slow, decelerates
+      lock_frames: 8
+
+# Audio - elimination sounds only
 audio:
   enabled: true
-  mode: beat_sync              # "default" or "beat_sync"
-  music_path: sounds/music/vem_vem.mp3  # Your music file
-  beats_file: beats/vem_vem_new.txt
-  beats_fps: 60
+  mode: default
   sound_pack: default
   countdown_enabled: false
-  countdown_thresholds: [10, 5, 3]
   volume:
     elimination: 0.8
     countdown: 1.0
     winner: 1.0
-    music: 0.4
+    music: 0.0
 
-# Output settings
 output:
   directory: output

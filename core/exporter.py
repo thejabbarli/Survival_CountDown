@@ -26,7 +26,7 @@ class Exporter:
         progress_callback: Optional[Callable[[int, int], None]] = None
     ) -> Path:
         """Export frames to video file.
-
+        
         Writes frames to disk first to avoid memory issues with large videos.
         """
         try:
@@ -37,7 +37,7 @@ class Exporter:
         # Ensure .mp4 extension
         if not filename.endswith('.mp4'):
             filename = filename + '.mp4'
-
+            
         output_path = self.output_dir / filename
 
         # Create temp directory for frames
@@ -50,24 +50,24 @@ class Exporter:
             # Write frames to disk as JPEG (smaller, faster)
             print(f"  Saving {len(frames)} frames to disk...")
             frame_paths = []
-
+            
             for i, frame in enumerate(frames):
                 if frame.mode != 'RGB':
                     frame = frame.convert('RGB')
-
+                
                 frame_path = temp_dir / f"frame_{i:06d}.jpg"
                 frame.save(frame_path, "JPEG", quality=95)
                 frame_paths.append(str(frame_path))
-
+                
                 # Progress
                 if i % 200 == 0:
                     print(f"    {i}/{len(frames)} frames saved")
-
+                
                 # Free memory
                 frames[i] = None
 
             print(f"  Encoding video...")
-
+            
             # Create clip from file paths (memory efficient)
             clip = ImageSequenceClip(frame_paths, fps=self.fps)
 
@@ -75,13 +75,13 @@ class Exporter:
             audio_path = Path(audio) if audio else None
             if audio_path and audio_path.exists():
                 audio_clip = AudioFileClip(str(audio_path))
-
+                
                 if audio_clip.duration > clip.duration:
                     try:
                         audio_clip = audio_clip.subclipped(0, clip.duration)
                     except AttributeError:
                         audio_clip = audio_clip.subclip(0, clip.duration)
-
+                
                 try:
                     clip = clip.with_audio(audio_clip)
                 except AttributeError:

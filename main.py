@@ -1,5 +1,6 @@
 """Main entry point for Survival Countdown."""
 
+import shutil
 import time
 import yaml
 from pathlib import Path
@@ -9,8 +10,6 @@ from core import (
     Project,
     Simulation,
     Renderer,
-    Exporter,
-    AudioBuilder,
     RenderConfig,
     CanvasConfig,
     LayoutConfig,
@@ -19,10 +18,13 @@ from core import (
     EntityDisplayConfig,
     AudioConfig,
     FrameListScheduler,
-    ModernFadeAnimation
+    ModernFadeAnimation,
+    RandomElimination,
+    ManualElimination,
 )
-from core.audio import BeatDetector
+from core.audio import BeatDetector, AudioBuilder
 from core.idle_animation import IdleAnimator, set_idle_animator
+from core.spotlight import SpotlightConfig
 
 
 def load_config(config_path: Path = Path("config.yaml")) -> dict:
@@ -42,23 +44,82 @@ def main() -> None:
     out_cfg = config.get('output', {})
     audio_cfg = config.get('audio', {})
     sudden_death_cfg = sim_cfg.get('sudden_death', {})
+    spotlight_cfg = config.get('spotlight', {})
 
     # Load project
     project_path = Path("assets/countries")
     project = Project(project_path)
     print(f"Loaded project: {project.name} ({len(project.entities)} entities)")
 
-    # Get entities
-    entity_count = sim_cfg.get('entity_count', 16)
-    if entity_count == "all":
-        entity_count = None
-    entities = project.get_entities(count=entity_count)
-    print(f"Using {len(entities)} entities")
+    # ========================================
+    # GET ENTITIES (supports manual selection)
+    # ========================================
+
+    all_entities = project.get_entities(shuffle=False)
+
+    # Option 1: Specific IDs
+    if sim_cfg.get('entity_ids'):
+        wanted_ids = sim_cfg.get('entity_ids')
+        entities = [e for e in all_entities if e.id in wanted_ids]
+        # Keep order from config
+        id_order = {id: i for i, id in enumerate(wanted_ids)}
+        entities.sort(key=lambda e: id_order.get(e.id, 999))
+        print(f"Using {len(entities)} specific entities by ID")
+
+    # Option 2: Specific names
+    elif sim_cfg.get('entity_names'):
+        wanted_names = sim_cfg.get('entity_names')
+        entities = [e for e in all_entities if e.name in wanted_names]
+        # Keep order from config
+        name_order = {name: i for i, name in enumerate(wanted_names)}
+        entities.sort(key=lambda e: name_order.get(e.name, 999))
+        print(f"Using {len(entities)} specific entities by name")
+
+    # Option 3: Random selection (original behavior)
+    else:
+        entity_count = sim_cfg.get('entity_count', 16)
+        if entity_count == "all":
+            entities = project.get_entities(shuffle=True)
+        else:
+            entities = project.get_entities(count=entity_count, shuffle=True)
+        print(f"Using {len(entities)} entities")
+
+    # ========================================
+    # ELIMINATION STRATEGY
+    # ========================================
+
+    elimination_mode = sim_cfg.get('elimination_mode', 'random')
+    elimination_strategy = None
+
+    if elimination_mode == 'manual':
+        elimination_order = sim_cfg.get('elimination_order', [])
+        if elimination_order:
+            use_names = sim_cfg.get('use_names_for_elimination', False)
+            elimination_strategy = ManualElimination(
+                order=elimination_order,
+                use_names=use_names
+            )
+            print(f"Using MANUAL elimination ({len(elimination_order)} predetermined)")
+        else:
+            print("WARNING: elimination_mode is 'manual' but elimination_order is empty!")
+
+    if elimination_strategy is None:
+        elimination_strategy = RandomElimination()
 
     # FPS and resolution
     fps = video_cfg.get('fps', 60)
     width = video_cfg.get('width', 1080)
     height = video_cfg.get('height', 1920)
+
+    # ========================================
+    # SPOTLIGHT CONFIG
+    # ========================================
+
+    spotlight_config = SpotlightConfig.from_dict(spotlight_cfg)
+    if spotlight_config.enabled:
+        print(f"Spotlight: ENABLED (gambling mode)")
+    else:
+        print(f"Spotlight: disabled")
 
     # ========================================
     # SCHEDULER (manual beats, beat sync, or interval)
@@ -69,54 +130,57 @@ def main() -> None:
     beats_file = audio_cfg.get('beats_file')
     scheduler = None
 
-    # Option 1: Manual beats file
-    if beats_file:
-        beats_path = Path(beats_file)
-        if beats_path.exists():
-            print(f"\nLoading manual beats from: {beats_path.name}")
-            with open(beats_path, 'r') as f:
-                all_beats = [int(line.strip()) for line in f if line.strip().isdigit()]
+    # Only use scheduler if spotlight is disabled
+    # When spotlight is enabled, simulation handles timing dynamically
+    if not spotlight_config.enabled:
+        # Option 1: Manual beats file
+        if beats_file:
+            beats_path = Path(beats_file)
+            if beats_path.exists():
+                print(f"\nLoading manual beats from: {beats_path.name}")
+                with open(beats_path, 'r') as f:
+                    all_beats = [int(line.strip()) for line in f if line.strip().isdigit()]
 
-            # Convert FPS if needed
-            beats_fps = audio_cfg.get('beats_fps', fps)
-            if beats_fps != fps:
-                all_beats = [int(b * fps / beats_fps) for b in all_beats]
-                print(f"Converted beats from {beats_fps}fps to {fps}fps")
+                # Convert FPS if needed
+                beats_fps = audio_cfg.get('beats_fps', fps)
+                if beats_fps != fps:
+                    all_beats = [int(b * fps / beats_fps) for b in all_beats]
+                    print(f"Converted beats from {beats_fps}fps to {fps}fps")
 
-            # Only use as many beats as we need
-            num_eliminations = len(entities) - 1
-            elimination_frames = all_beats[:num_eliminations]
-            print(f"Using {len(elimination_frames)} of {len(all_beats)} beats")
+                # Only use as many beats as we need
+                num_eliminations = len(entities) - 1
+                elimination_frames = all_beats[:num_eliminations]
+                print(f"Using {len(elimination_frames)} of {len(all_beats)} beats")
 
-            scheduler = FrameListScheduler(elimination_frames)
-        else:
-            print(f"WARNING: Beats file not found: {beats_file}")
-
-    # Option 2: Auto beat detection
-    elif audio_mode == 'beat_sync' and music_path:
-        music_file = Path(music_path)
-        if music_file.exists():
-            print(f"\nDetecting beats in: {music_file.name}")
-            detector = BeatDetector(fps=fps)
-            beat_result = detector.detect(music_file)
-
-            num_eliminations = len(entities) - 1
-
-            if len(beat_result.beat_frames) >= num_eliminations:
-                elimination_frames = beat_result.beat_frames[:num_eliminations]
+                scheduler = FrameListScheduler(elimination_frames)
             else:
-                elimination_frames = list(beat_result.beat_frames)
-                avg_interval = int(beat_result.average_interval_frames)
-                while len(elimination_frames) < num_eliminations:
-                    elimination_frames.append(elimination_frames[-1] + avg_interval)
+                print(f"WARNING: Beats file not found: {beats_file}")
 
-            print(f"BPM: {beat_result.tempo:.1f}")
-            print(f"Beats found: {len(beat_result.beat_frames)}")
-            print(f"Using {num_eliminations} beats for eliminations")
+        # Option 2: Auto beat detection
+        elif audio_mode == 'beat_sync' and music_path:
+            music_file = Path(music_path)
+            if music_file.exists():
+                print(f"\nDetecting beats in: {music_file.name}")
+                detector = BeatDetector(fps=fps)
+                beat_result = detector.detect(music_file)
 
-            scheduler = FrameListScheduler(elimination_frames)
-        else:
-            print(f"WARNING: Music file not found: {music_path}")
+                num_eliminations = len(entities) - 1
+
+                if len(beat_result.beat_frames) >= num_eliminations:
+                    elimination_frames = beat_result.beat_frames[:num_eliminations]
+                else:
+                    elimination_frames = list(beat_result.beat_frames)
+                    avg_interval = int(beat_result.average_interval_frames)
+                    while len(elimination_frames) < num_eliminations:
+                        elimination_frames.append(elimination_frames[-1] + avg_interval)
+
+                print(f"BPM: {beat_result.tempo:.1f}")
+                print(f"Beats found: {len(beat_result.beat_frames)}")
+                print(f"Using {num_eliminations} beats for eliminations")
+
+                scheduler = FrameListScheduler(elimination_frames)
+            else:
+                print(f"WARNING: Music file not found: {music_path}")
 
     # ========================================
     # SIMULATION
@@ -128,7 +192,9 @@ def main() -> None:
         simulation = Simulation(
             entities=entities,
             scheduler=scheduler,
-            fps=fps
+            fps=fps,
+            elimination_strategy=elimination_strategy,
+            spotlight_config=spotlight_config,
         )
     else:
         simulation = Simulation(
@@ -139,21 +205,25 @@ def main() -> None:
             sudden_death_multiplier_1=sudden_death_cfg.get('multiplier_1', 2),
             sudden_death_threshold_2=sudden_death_cfg.get('threshold_2', 5),
             sudden_death_multiplier_2=sudden_death_cfg.get('multiplier_2', 4),
-            fps=fps
+            fps=fps,
+            elimination_strategy=elimination_strategy,
+            spotlight_config=spotlight_config,
         )
 
-    seed = sim_cfg.get('seed')
+    seed = sim_cfg.get('seed') if elimination_mode == 'random' else None
     result = simulation.run(seed=seed)
 
     print(f"Winner: {result.winner.name}")
     print(f"Total eliminations: {len(result.events)}")
     print(f"Total frames: {result.total_frames}")
     print(f"Duration: {result.total_frames / fps:.1f} seconds")
+    if spotlight_config.enabled:
+        print(f"Spotlight events: {len(result.spotlight_events)}")
     if seed:
         print(f"Seed: {seed} (use same seed to replay)")
 
     # ========================================
-    # RENDER CONFIG (with all new features)
+    # RENDER CONFIG
     # ========================================
 
     # Setup idle animation
@@ -189,7 +259,7 @@ def main() -> None:
         idle_enabled=vis_cfg.get('idle_enabled', True)
     )
 
-    # Entity display (rounded corners, shadows)
+    # Entity display
     entity_config = EntityDisplayConfig(
         corner_radius=vis_cfg.get('corner_radius', 12),
         shadow_enabled=vis_cfg.get('shadow_enabled', True),
@@ -222,12 +292,17 @@ def main() -> None:
     renderer = Renderer(
         render_config,
         total_frames=result.total_frames,
-        elimination_animation=modern_animation
+        elimination_animation=modern_animation,
+        spotlight_visual_config=spotlight_config.visual if spotlight_config.enabled else None,
     )
     renderer.set_eliminations(result.events)
 
+    # Set spotlight events if enabled
+    if spotlight_config.enabled and result.spotlight_events:
+        renderer.set_spotlight_events(result.spotlight_events)
+
     # ========================================
-    # RENDER FRAMES (memory efficient - writes to disk)
+    # RENDER FRAMES (memory efficient)
     # ========================================
 
     print(f"\nRendering {result.total_frames} frames at {width}x{height} {fps}fps...")
@@ -236,12 +311,11 @@ def main() -> None:
     # Create temp directory for frames
     temp_frames_dir = Path(out_cfg.get('directory', 'output')) / "_temp_frames"
     if temp_frames_dir.exists():
-        import shutil
         shutil.rmtree(temp_frames_dir)
     temp_frames_dir.mkdir(parents=True)
 
-    # Add extra frames for last elimination animation to finish
-    animation_buffer = int(fps * 0.5)  # 0.5 seconds
+    # Calculate winner start frame
+    animation_buffer = int(fps * 0.5)
     winner_start_frame = result.total_frames - simulation.winner_celebration_frames + animation_buffer
 
     frame_paths = []
@@ -260,7 +334,7 @@ def main() -> None:
         else:
             frame = renderer.render_frame(entities, frame_num)
 
-        # Save to disk immediately (don't store in memory)
+        # Save to disk immediately
         frame_path = temp_frames_dir / f"frame_{frame_num:06d}.jpg"
         frame.convert('RGB').save(frame_path, "JPEG", quality=95)
         frame_paths.append(str(frame_path))
@@ -276,7 +350,7 @@ def main() -> None:
     if audio_cfg.get('enabled', True):
         print(f"\nBuilding audio (mode: {audio_mode})...")
 
-        audio_config = AudioConfig(
+        audio_config_obj = AudioConfig(
             enabled=True,
             mode=audio_mode,
             sound_pack=audio_cfg.get('sound_pack', 'default'),
@@ -289,7 +363,7 @@ def main() -> None:
             countdown_thresholds=tuple(audio_cfg.get('countdown_thresholds', [10, 5, 3]))
         )
 
-        audio_builder = AudioBuilder(audio_config, fps=fps)
+        audio_builder = AudioBuilder(audio_config_obj, fps=fps)
         audio = audio_builder.build(
             events=result.events,
             total_frames=result.total_frames,
@@ -301,55 +375,66 @@ def main() -> None:
         else:
             print("  No sounds found, video will be silent")
 
-        # ========================================
-        # EXPORT
-        # ========================================
+    # ========================================
+    # EXPORT
+    # ========================================
 
-        print("\nExporting video...")
-        export_start = time.time()
+    print("\nExporting video...")
+    export_start = time.time()
 
-        try:
-            from moviepy import ImageSequenceClip, AudioFileClip
-        except ImportError:
-            from moviepy.editor import ImageSequenceClip, AudioFileClip
+    try:
+        from moviepy import ImageSequenceClip, AudioFileClip
+    except ImportError:
+        from moviepy.editor import ImageSequenceClip, AudioFileClip
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        seed_str = f"_seed{seed}" if seed else ""
-        filename = f"{project.name}_{len(entities)}ent{seed_str}_{timestamp}.mp4"
-        output_path = Path(out_cfg.get('directory', 'output')) / filename
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    seed_str = f"_seed{seed}" if seed else ""
+    filename = f"{project.name}_{len(entities)}ent{seed_str}_{timestamp}.mp4"
+    output_path = Path(out_cfg.get('directory', 'output')) / filename
 
-        # Create clip from saved frames
-        clip = ImageSequenceClip(frame_paths, fps=fps)
+    # Create clip from saved frames
+    clip = ImageSequenceClip(frame_paths, fps=fps)
 
-        # Add audio
-        if audio and Path(audio).exists():
-            audio_clip = AudioFileClip(str(audio))
-            if audio_clip.duration > clip.duration:
-                try:
-                    audio_clip = audio_clip.subclipped(0, clip.duration)
-                except AttributeError:
-                    audio_clip = audio_clip.subclip(0, clip.duration)
+    # Add audio
+    if audio and Path(audio).exists():
+        audio_clip = AudioFileClip(str(audio))
+        if audio_clip.duration > clip.duration:
             try:
-                clip = clip.with_audio(audio_clip)
+                audio_clip = audio_clip.subclipped(0, clip.duration)
             except AttributeError:
-                clip = clip.set_audio(audio_clip)
+                audio_clip = audio_clip.subclip(0, clip.duration)
+        try:
+            clip = clip.with_audio(audio_clip)
+        except AttributeError:
+            clip = clip.set_audio(audio_clip)
 
-        clip.write_videofile(
-            str(output_path),
-            codec='libx264',
-            audio_codec='aac' if audio else None,
-            fps=fps,
-            preset='fast',
-            threads=4,
-            logger='bar'
-        )
-        clip.close()
+    clip.write_videofile(
+        str(output_path),
+        codec='libx264',
+        audio_codec='aac' if audio else None,
+        fps=fps,
+        preset='fast',
+        threads=4,
+        logger='bar'
+    )
+    clip.close()
 
-        # Clean up temp frames
-        import shutil
-        shutil.rmtree(temp_frames_dir)
+    # Clean up temp frames
+    shutil.rmtree(temp_frames_dir)
 
-        export_time = time.time() - export_start
+    export_time = time.time() - export_start
+    total_time = render_time + export_time
+
+    print()
+    print("=" * 50)
+    print(f"DONE: {output_path}")
+    print("=" * 50)
+    print(f"Render: {int(render_time // 60)}m {int(render_time % 60)}s")
+    print(f"Export: {int(export_time // 60)}m {int(export_time % 60)}s")
+    print(f"Total:  {int(total_time // 60)}m {int(total_time % 60)}s")
+    if seed:
+        print(f"\nTo replay exact simulation: set seed: {seed} in config.yaml")
+    print()
 
 
 if __name__ == "__main__":

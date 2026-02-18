@@ -15,27 +15,35 @@ from .winner_renderer import WinnerFrameRenderer
 # Import base class - concrete animations imported where needed
 from ..animations import EliminationAnimation, ShrinkWithXAnimation
 
+# Spotlight imports
+from ..spotlight import SpotlightVisualConfig, SpotlightTracker
+
 
 class RendererFactory:
     """Factory for creating configured renderer components.
-    
+
     Centralizes creation of all rendering-related objects:
     - Layout
     - Drawers (entity, counter, winner)
     - Renderers (game, winner)
     - IdleAnimator
-    
+    - SpotlightTracker
+
     This follows the Factory pattern - clients don't need to know
     how to construct complex renderer hierarchies.
-    
+
     Usage:
         factory = RendererFactory(config, font_loader)
         game_renderer = factory.create_game_renderer()
         winner_renderer = factory.create_winner_renderer()
-        
+
     With custom idle animator:
         animator = IdleAnimator(wave_speed=0.1)
         factory = RendererFactory(config, font_loader, idle_animator=animator)
+
+    With spotlight:
+        spot_config = SpotlightVisualConfig(glow_color="#FFD700")
+        factory = RendererFactory(config, font_loader, spotlight_visual_config=spot_config)
     """
 
     def __init__(
@@ -44,6 +52,7 @@ class RendererFactory:
         font_loader: FontLoader,
         elimination_animation: Optional[EliminationAnimation] = None,
         idle_animator: Optional[IdleAnimator] = None,
+        spotlight_visual_config: Optional[SpotlightVisualConfig] = None,
         total_frames: int = 1
     ):
         self.config = config
@@ -51,7 +60,8 @@ class RendererFactory:
         self.elimination_animation = elimination_animation or ShrinkWithXAnimation(config.animation)
         self.total_frames = total_frames
         self._canvas_factory = CanvasFactory(config.canvas, total_frames)
-        
+        self.spotlight_visual_config = spotlight_visual_config
+
         # Create or use provided idle animator
         if idle_animator is not None:
             self._idle_animator = idle_animator
@@ -65,10 +75,18 @@ class RendererFactory:
                 breathe_amount=anim_cfg.idle_breathe_amount
             )
 
+        # Create spotlight tracker
+        self._spotlight_tracker = SpotlightTracker()
+
     @property
     def idle_animator(self) -> IdleAnimator:
         """Get the idle animator used by this factory."""
         return self._idle_animator
+
+    @property
+    def spotlight_tracker(self) -> SpotlightTracker:
+        """Get the spotlight tracker used by this factory."""
+        return self._spotlight_tracker
 
     def create_entity_state(self) -> EntityState:
         """Create EntityState with configured animation duration."""
@@ -97,11 +115,12 @@ class RendererFactory:
         )
 
     def create_entity_drawer(self) -> EntityDrawer:
-        """Create EntityDrawer with elimination animation."""
+        """Create EntityDrawer with elimination animation and spotlight."""
         return EntityDrawer(
             entity_config=self.config.entity,
             font=self.font_loader.get_small(),
-            elimination_animation=self.elimination_animation
+            elimination_animation=self.elimination_animation,
+            spotlight_visual_config=self.spotlight_visual_config,
         )
 
     def create_counter_drawer(self) -> Optional[CounterDrawer]:
@@ -132,7 +151,8 @@ class RendererFactory:
             entity_drawer=self.create_entity_drawer(),
             counter_drawer=self.create_counter_drawer(),
             entity_state=self.create_entity_state(),
-            config=self.config
+            config=self.config,
+            spotlight_tracker=self._spotlight_tracker,
         )
 
     def create_winner_renderer(self) -> WinnerFrameRenderer:
