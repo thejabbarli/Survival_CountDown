@@ -1,10 +1,7 @@
-"""Spotlight path generator - REAL SLOT MACHINE STYLE.
-
-Scans through ALL entities (sometimes multiple rotations) before landing.
-Early game = quick scan. Late game = multiple full rotations.
-"""
+"""Spotlight path generator - slot machine with smooth deceleration."""
 
 import random
+import math
 from typing import List, Optional, TYPE_CHECKING
 
 from .types import SpotlightStop, SpotlightSequence
@@ -15,15 +12,18 @@ if TYPE_CHECKING:
 
 
 class SpotlightGenerator:
-    """Generates spotlight paths with full rotations like a slot machine.
+    """Generates spotlight paths with realistic deceleration.
 
-    The spotlight scans through ALL entities, potentially multiple times,
-    before landing on the victim. Creates real gambling tension.
+    Like a real slot machine:
+    - Starts fast
+    - Gradually slows down
+    - Almost stops before landing on victim
     """
 
     def __init__(self, config: 'SpotlightConfig', total_entities: int):
         self.config = config
         self.phase_controller = PhaseController(total_entities, config)
+        self._initial_entity_count = total_entities
 
     def generate(
         self,
@@ -32,38 +32,29 @@ class SpotlightGenerator:
         remaining_count: int,
         seed: Optional[int] = None
     ) -> SpotlightSequence:
-        """Generate spotlight sequence with full rotations.
-
-        Args:
-            victim_id: Entity that will be eliminated
-            alive_ids: All currently alive entity IDs (IN GRID ORDER)
-            remaining_count: Number of entities alive
-            seed: Optional random seed
-
-        Returns:
-            SpotlightSequence scanning through entities
-        """
+        """Generate spotlight sequence with deceleration."""
         if seed is not None:
             random.seed(seed)
 
         if remaining_count <= 1 or victim_id not in alive_ids:
             return self._create_direct_sequence(victim_id)
 
-        # Get phase
         phase = self.phase_controller.get_phase(remaining_count)
         phase_config = self.phase_controller.get_phase_config(phase)
 
-        # Find victim's position
         try:
             victim_idx = alive_ids.index(victim_id)
         except ValueError:
             return self._create_direct_sequence(victim_id)
 
-        # Build scan path based on phase
+        # Calculate how far into the game we are (0.0 = start, 1.0 = end)
+        game_progress = 1.0 - (remaining_count / self._initial_entity_count)
+
         path = self._build_scan_path(alive_ids, victim_idx, phase, remaining_count)
 
-        # Generate stops with timing
-        return self._build_sequence(path, victim_id, phase_config, phase)
+        return self._build_sequence_with_deceleration(
+            path, victim_id, phase_config, phase, game_progress
+        )
 
     def _build_scan_path(
         self,
@@ -72,121 +63,93 @@ class SpotlightGenerator:
         phase: Phase,
         remaining_count: int
     ) -> List[str]:
-        """Build path that scans through entities like slot machine.
-
-        CHAOS: Quick scan, ~1/2 rotation
-        GRIND: Full rotation + some extra
-        DUEL: Multiple rotations, dramatic
-        """
+        """Build path scanning through entities."""
         total = len(alive_ids)
 
         if phase == Phase.CHAOS:
-            # Quick scan: half the entities or so
+            # Quick: half rotation
             scan_count = max(3, total // 2)
 
         elif phase == Phase.GRIND:
-            # Full rotation plus random extra
-            scan_count = total + random.randint(total // 3, total // 2)
+            # Full rotation + extra
+            scan_count = total + random.randint(total // 3, total)
 
         else:  # DUEL
-            # Multiple rotations for drama
             if total <= 3:
                 # Final few: 2-3 full rotations
                 scan_count = total * random.randint(2, 3)
             else:
-                scan_count = total + random.randint(total // 2, total)
+                scan_count = total * 2 + random.randint(0, total // 2)
 
-        # Random starting position (adds unpredictability)
+        # Random start
         start_idx = random.randint(0, total - 1)
 
-        # We need to end on victim, so calculate how many steps to get there
-        # from start position, plus full rotations
-
-        # Steps from start to victim (going forward/clockwise)
+        # Calculate steps to end on victim
         steps_to_victim = (victim_idx - start_idx) % total
-
-        # Add full rotations to reach our target scan_count
-        full_rotations = (scan_count - steps_to_victim) // total
-        if full_rotations < 0:
-            full_rotations = 0
-
-        # Total steps = rotations * total + steps to victim
-        # But we want at least scan_count steps total
+        full_rotations = max(0, (scan_count - steps_to_victim) // total)
         total_steps = full_rotations * total + steps_to_victim
 
-        # Make sure we have at least the minimum scan count
         while total_steps < scan_count:
             total_steps += total
 
-        # Ensure at least 2 steps (1 decoy + victim)
         total_steps = max(2, total_steps)
 
-        # Build the path
+        # Build path
         path = []
         for i in range(total_steps):
             idx = (start_idx + i) % total
             path.append(alive_ids[idx])
 
-        # Make sure we end on victim
         if path[-1] != alive_ids[victim_idx]:
             path.append(alive_ids[victim_idx])
 
         return path
 
-    def _build_sequence(
+    def _build_sequence_with_deceleration(
         self,
         path: List[str],
         victim_id: str,
         phase_config: 'PhaseConfig',
-        phase: Phase
+        phase: Phase,
+        game_progress: float
     ) -> SpotlightSequence:
-        """Build timed sequence from path.
+        """Build sequence with smooth deceleration curve.
 
-        Timing varies by phase:
-        - CHAOS: Very fast, consistent
-        - GRIND: Medium, slight slowdown at end
-        - DUEL: Slow with dramatic deceleration
+        Uses easing function so cursor visibly slows down.
         """
         stops = []
         current_frame = 0
         path_len = len(path)
 
+        min_frames, max_frames = phase_config.frames_per_stop_range
+
+        # Game progress affects overall speed
+        # Early game (progress=0): faster
+        # Late game (progress=1): slower
+        speed_multiplier = 1.0 + game_progress * 1.5  # 1.0x to 2.5x slower
+
         for i, entity_id in enumerate(path):
             is_victim = (entity_id == victim_id and i == path_len - 1)
 
             if is_victim:
-                # Lock on victim
                 duration = phase_config.lock_frames
             else:
-                # Calculate duration based on position in path
-                min_frames, max_frames = phase_config.frames_per_stop_range
+                # Progress through this scan (0.0 = start, 1.0 = end)
+                scan_progress = i / max(1, path_len - 1)
 
-                if phase == Phase.CHAOS:
-                    # Fast and consistent
-                    duration = min_frames
+                # Easing function: slow at end
+                # Using ease-out-quad: 1 - (1-t)^2
+                # This makes it start fast and slow down toward the end
+                ease = 1.0 - math.pow(1.0 - scan_progress, 2)
 
-                elif phase == Phase.GRIND:
-                    # Slight slowdown toward end
-                    progress = i / path_len
-                    if progress > 0.7:
-                        duration = max_frames
-                    elif progress > 0.5:
-                        duration = (min_frames + max_frames) // 2
-                    else:
-                        duration = min_frames
+                # Interpolate between min and max frames based on easing
+                base_duration = min_frames + (max_frames - min_frames) * ease
 
-                else:  # DUEL
-                    # Dramatic deceleration
-                    progress = i / path_len
-                    if progress > 0.85:
-                        # Very slow at end
-                        duration = max_frames + 5
-                    elif progress > 0.6:
-                        duration = max_frames
-                    elif progress > 0.3:
-                        duration = (min_frames + max_frames) // 2
-                    else:
-                        duration = min_frames
+                # Apply game progress multiplier
+                duration = int(base_duration * speed_multiplier)
+
+                # Ensure minimum of 1 frame
+                duration = max(1, duration)
 
             stop = SpotlightStop(
                 entity_id=entity_id,

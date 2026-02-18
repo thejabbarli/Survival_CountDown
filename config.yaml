@@ -1,11 +1,11 @@
 # ============================================
-# SURVIVAL COUNTDOWN - CONFIG WITH SLOT MACHINE SPOTLIGHT
+# SURVIVAL COUNTDOWN - FINAL CONFIG
 # ============================================
 
 video:
-  width: 480 #480
-  height: 854 #854
-  fps: 30
+  width: 1080       # 480 for preview, 1080 for production
+  height: 1920      # 854 for preview, 1920 for production
+  fps: 60          # 30 for preview, 60 for production
 
 simulation:
   entity_count: 25
@@ -63,45 +63,48 @@ visuals:
   greenscreen: false
   transparent: false
 
-# Spotlight - slot machine style
+# Spotlight - slot machine with deceleration
 spotlight:
   enabled: true
 
   visual:
-    dim_opacity: 0.5          # Dimmer to make spotlight pop more
-    active_scale: 1.12        # Bigger pop when spotlit
-    locked_scale: 1.15        # Even bigger when locked
-    glow_enabled: true        # Now draws border, not blob
-    glow_radius: 15           # Not used anymore (border instead)
-    glow_color: "#FFFFFF"     # White border (cleaner than gold)
+    dim_opacity: 0.5          # Non-spotlit entities quite dim
+    active_scale: 1.12        # Nice pop when spotlit
+    locked_scale: 1.15        # Bigger when locked on victim
+    glow_enabled: true        # Draws clean border
+    glow_radius: 15           # Not used (border instead)
+    glow_color: "#FFFFFF"     # White border
     glow_opacity: 255
 
   sound:
-    enabled: false
+    enabled: true             # Enable for tick sounds
+    tick_sound: "tick.wav"
+    lock_sound: ""
 
   phases:
-    # CHAOS: Fast scan, ~half rotation
+    # CHAOS: Quick scan, half rotation
+    # Game progress multiplier makes later eliminations slower
     chaos:
       until_remaining_percent: 60
-      decoy_count: [3, 6]           # Ignored now (generator calculates)
-      frames_per_stop: [2, 3]       # Very fast
+      decoy_count: [3, 6]
+      frames_per_stop: [2, 4]    # Fast: 2-4 frames per entity
       lock_frames: 3
 
-    # GRIND: Full rotation + extra
+    # GRIND: Full rotation, medium speed
     grind:
       until_remaining_percent: 20
-      decoy_count: [5, 10]          # Ignored
-      frames_per_stop: [3, 6]       # Medium speed
+      decoy_count: [5, 10]
+      frames_per_stop: [3, 8]    # Medium: 3-8 frames, decelerates
       lock_frames: 5
 
-    # DUEL: Multiple rotations, dramatic slowdown
+    # DUEL: Multiple rotations, slow & dramatic
     duel:
       until_remaining_percent: 0
-      decoy_count: [10, 20]         # Ignored
-      frames_per_stop: [4, 10]      # Slow, decelerates
-      lock_frames: 8
+      decoy_count: [10, 20]
+      frames_per_stop: [5, 15]   # Slow: 5-15 frames, big deceleration
+      lock_frames: 10
 
-# Audio - elimination sounds only
+# Audio - elimination + spotlight sounds
 audio:
   enabled: true
   mode: default
@@ -110,7 +113,7 @@ audio:
   volume:
     elimination: 0.8
     countdown: 1.0
-    winner: 1.0
+    winner: 0.0
     music: 0.0
 
 output:

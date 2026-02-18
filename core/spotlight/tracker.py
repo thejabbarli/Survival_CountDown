@@ -1,4 +1,4 @@
-"""Spotlight state tracker. DEBUG VERSION"""
+"""Spotlight state tracker."""
 
 from typing import Dict, List, Optional, Set
 
@@ -6,22 +6,21 @@ from .types import SpotlightState, SpotlightSequence, SpotlightEvent
 
 
 class SpotlightTracker:
-    """Tracks spotlight state across all frames."""
+    """Tracks spotlight state across all frames.
+
+    Provides:
+    - Entity state lookups (NORMAL/DIMMED/ACTIVE/LOCKED)
+    - Sound trigger frames
+    """
 
     def __init__(self):
         self._events: List[SpotlightEvent] = []
         self._sound_frames: Set[int] = set()
         self._lock_frames: Set[int] = set()
-        print(f"[DEBUG TRACKER] SpotlightTracker created")
 
     def set_events(self, events: List[SpotlightEvent]) -> None:
         """Register spotlight events from simulation."""
         self._events = events
-        print(f"[DEBUG TRACKER] set_events called with {len(events)} events")
-        for i, ev in enumerate(events[:3]):  # Print first 3
-            print(f"[DEBUG TRACKER]   event {i}: start={ev.start_frame}, end={ev.end_frame}")
-        if len(events) > 3:
-            print(f"[DEBUG TRACKER]   ... and {len(events) - 3} more")
         self._build_sound_cache()
 
     def _build_sound_cache(self) -> None:
@@ -94,14 +93,12 @@ class SpotlightTracker:
         """Get spotlight state for all entities at once."""
         event = self.get_active_event(frame)
 
-        # No spotlight active - everyone normal
         if event is None:
             return {eid: SpotlightState.NORMAL for eid in alive_ids}
 
         relative_frame = event.get_relative_frame(frame)
         active_id = event.sequence.get_active_entity_id(relative_frame)
 
-        # Spotlight sequence ended
         if active_id is None:
             return {eid: SpotlightState.NORMAL for eid in alive_ids}
 
@@ -120,10 +117,14 @@ class SpotlightTracker:
         """Check if spotlight transition sound should play."""
         return frame in self._sound_frames
 
-    def should_play_lock_sound(self, frame: int) -> bool:
+    def is_lock_sound(self, frame: int) -> bool:
         """Check if this is a lock sound (vs regular tick)."""
         return frame in self._lock_frames
 
     def get_sound_frames(self) -> List[int]:
-        """Get all frames that need spotlight sounds."""
+        """Get all frames that need spotlight tick sounds."""
         return sorted(self._sound_frames)
+
+    def get_lock_sound_frames(self) -> List[int]:
+        """Get frames that need lock sounds."""
+        return sorted(self._lock_frames)

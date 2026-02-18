@@ -36,7 +36,6 @@ def load_config(config_path: Path = Path("config.yaml")) -> dict:
 
 
 def main() -> None:
-    # Load config
     config = load_config()
     video_cfg = config.get('video', {})
     sim_cfg = config.get('simulation', {})
@@ -46,36 +45,30 @@ def main() -> None:
     sudden_death_cfg = sim_cfg.get('sudden_death', {})
     spotlight_cfg = config.get('spotlight', {})
 
-    # Load project
     project_path = Path("assets/countries")
     project = Project(project_path)
     print(f"Loaded project: {project.name} ({len(project.entities)} entities)")
 
     # ========================================
-    # GET ENTITIES (supports manual selection)
+    # GET ENTITIES
     # ========================================
 
     all_entities = project.get_entities(shuffle=False)
 
-    # Option 1: Specific IDs
     if sim_cfg.get('entity_ids'):
         wanted_ids = sim_cfg.get('entity_ids')
         entities = [e for e in all_entities if e.id in wanted_ids]
-        # Keep order from config
         id_order = {id: i for i, id in enumerate(wanted_ids)}
         entities.sort(key=lambda e: id_order.get(e.id, 999))
         print(f"Using {len(entities)} specific entities by ID")
 
-    # Option 2: Specific names
     elif sim_cfg.get('entity_names'):
         wanted_names = sim_cfg.get('entity_names')
         entities = [e for e in all_entities if e.name in wanted_names]
-        # Keep order from config
         name_order = {name: i for i, name in enumerate(wanted_names)}
         entities.sort(key=lambda e: name_order.get(e.name, 999))
         print(f"Using {len(entities)} specific entities by name")
 
-    # Option 3: Random selection (original behavior)
     else:
         entity_count = sim_cfg.get('entity_count', 16)
         if entity_count == "all":
@@ -106,7 +99,6 @@ def main() -> None:
     if elimination_strategy is None:
         elimination_strategy = RandomElimination()
 
-    # FPS and resolution
     fps = video_cfg.get('fps', 60)
     width = video_cfg.get('width', 1080)
     height = video_cfg.get('height', 1920)
@@ -117,70 +109,9 @@ def main() -> None:
 
     spotlight_config = SpotlightConfig.from_dict(spotlight_cfg)
     if spotlight_config.enabled:
-        print(f"Spotlight: ENABLED (gambling mode)")
+        print(f"Spotlight: ENABLED")
     else:
         print(f"Spotlight: disabled")
-
-    # ========================================
-    # SCHEDULER (manual beats, beat sync, or interval)
-    # ========================================
-
-    audio_mode = audio_cfg.get('mode', 'default')
-    music_path = audio_cfg.get('music_path')
-    beats_file = audio_cfg.get('beats_file')
-    scheduler = None
-
-    # Only use scheduler if spotlight is disabled
-    # When spotlight is enabled, simulation handles timing dynamically
-    if not spotlight_config.enabled:
-        # Option 1: Manual beats file
-        if beats_file:
-            beats_path = Path(beats_file)
-            if beats_path.exists():
-                print(f"\nLoading manual beats from: {beats_path.name}")
-                with open(beats_path, 'r') as f:
-                    all_beats = [int(line.strip()) for line in f if line.strip().isdigit()]
-
-                # Convert FPS if needed
-                beats_fps = audio_cfg.get('beats_fps', fps)
-                if beats_fps != fps:
-                    all_beats = [int(b * fps / beats_fps) for b in all_beats]
-                    print(f"Converted beats from {beats_fps}fps to {fps}fps")
-
-                # Only use as many beats as we need
-                num_eliminations = len(entities) - 1
-                elimination_frames = all_beats[:num_eliminations]
-                print(f"Using {len(elimination_frames)} of {len(all_beats)} beats")
-
-                scheduler = FrameListScheduler(elimination_frames)
-            else:
-                print(f"WARNING: Beats file not found: {beats_file}")
-
-        # Option 2: Auto beat detection
-        elif audio_mode == 'beat_sync' and music_path:
-            music_file = Path(music_path)
-            if music_file.exists():
-                print(f"\nDetecting beats in: {music_file.name}")
-                detector = BeatDetector(fps=fps)
-                beat_result = detector.detect(music_file)
-
-                num_eliminations = len(entities) - 1
-
-                if len(beat_result.beat_frames) >= num_eliminations:
-                    elimination_frames = beat_result.beat_frames[:num_eliminations]
-                else:
-                    elimination_frames = list(beat_result.beat_frames)
-                    avg_interval = int(beat_result.average_interval_frames)
-                    while len(elimination_frames) < num_eliminations:
-                        elimination_frames.append(elimination_frames[-1] + avg_interval)
-
-                print(f"BPM: {beat_result.tempo:.1f}")
-                print(f"Beats found: {len(beat_result.beat_frames)}")
-                print(f"Using {num_eliminations} beats for eliminations")
-
-                scheduler = FrameListScheduler(elimination_frames)
-            else:
-                print(f"WARNING: Music file not found: {music_path}")
 
     # ========================================
     # SIMULATION
@@ -188,27 +119,18 @@ def main() -> None:
 
     print("\nRunning simulation...")
 
-    if scheduler:
-        simulation = Simulation(
-            entities=entities,
-            scheduler=scheduler,
-            fps=fps,
-            elimination_strategy=elimination_strategy,
-            spotlight_config=spotlight_config,
-        )
-    else:
-        simulation = Simulation(
-            entities=entities,
-            elimination_interval=sim_cfg.get('elimination_interval', 30),
-            sudden_death_enabled=sudden_death_cfg.get('enabled', True),
-            sudden_death_threshold_1=sudden_death_cfg.get('threshold_1', 10),
-            sudden_death_multiplier_1=sudden_death_cfg.get('multiplier_1', 2),
-            sudden_death_threshold_2=sudden_death_cfg.get('threshold_2', 5),
-            sudden_death_multiplier_2=sudden_death_cfg.get('multiplier_2', 4),
-            fps=fps,
-            elimination_strategy=elimination_strategy,
-            spotlight_config=spotlight_config,
-        )
+    simulation = Simulation(
+        entities=entities,
+        elimination_interval=sim_cfg.get('elimination_interval', 30),
+        sudden_death_enabled=sudden_death_cfg.get('enabled', True),
+        sudden_death_threshold_1=sudden_death_cfg.get('threshold_1', 10),
+        sudden_death_multiplier_1=sudden_death_cfg.get('multiplier_1', 2),
+        sudden_death_threshold_2=sudden_death_cfg.get('threshold_2', 5),
+        sudden_death_multiplier_2=sudden_death_cfg.get('multiplier_2', 4),
+        fps=fps,
+        elimination_strategy=elimination_strategy,
+        spotlight_config=spotlight_config,
+    )
 
     seed = sim_cfg.get('seed') if elimination_mode == 'random' else None
     result = simulation.run(seed=seed)
@@ -219,14 +141,11 @@ def main() -> None:
     print(f"Duration: {result.total_frames / fps:.1f} seconds")
     if spotlight_config.enabled:
         print(f"Spotlight events: {len(result.spotlight_events)}")
-    if seed:
-        print(f"Seed: {seed} (use same seed to replay)")
 
     # ========================================
     # RENDER CONFIG
     # ========================================
 
-    # Setup idle animation
     set_idle_animator(IdleAnimator(
         wave_speed=vis_cfg.get('idle_wave_speed', 0.08),
         wave_amount=vis_cfg.get('idle_wave_amount', 4.0),
@@ -234,7 +153,6 @@ def main() -> None:
         breathe_amount=vis_cfg.get('idle_breathe_amount', 0.03)
     ))
 
-    # Canvas with gradient
     canvas_config = CanvasConfig(
         width=width,
         height=height,
@@ -252,14 +170,12 @@ def main() -> None:
         transparent=vis_cfg.get('transparent', False)
     )
 
-    # Animation config
     animation_config = AnimationConfig(
         elimination_duration=int(fps * 0.5),
         flash_on_elimination=vis_cfg.get('flash_on_elimination', False),
         idle_enabled=vis_cfg.get('idle_enabled', True)
     )
 
-    # Entity display
     entity_config = EntityDisplayConfig(
         corner_radius=vis_cfg.get('corner_radius', 12),
         shadow_enabled=vis_cfg.get('shadow_enabled', True),
@@ -283,7 +199,6 @@ def main() -> None:
         entity=entity_config
     )
 
-    # Modern animation (no ugly X)
     modern_animation = ModernFadeAnimation(
         animation_config,
         corner_radius=entity_config.corner_radius
@@ -297,30 +212,26 @@ def main() -> None:
     )
     renderer.set_eliminations(result.events)
 
-    # Set spotlight events if enabled
     if spotlight_config.enabled and result.spotlight_events:
         renderer.set_spotlight_events(result.spotlight_events)
 
     # ========================================
-    # RENDER FRAMES (memory efficient)
+    # RENDER FRAMES
     # ========================================
 
     print(f"\nRendering {result.total_frames} frames at {width}x{height} {fps}fps...")
     render_start = time.time()
 
-    # Create temp directory for frames
     temp_frames_dir = Path(out_cfg.get('directory', 'output')) / "_temp_frames"
     if temp_frames_dir.exists():
         shutil.rmtree(temp_frames_dir)
     temp_frames_dir.mkdir(parents=True)
 
-    # Calculate winner start frame
     animation_buffer = int(fps * 0.5)
     winner_start_frame = result.total_frames - simulation.winner_celebration_frames + animation_buffer
 
     frame_paths = []
     for frame_num in range(result.total_frames):
-        # Progress every 60 frames
         if frame_num % 60 == 0:
             elapsed = time.time() - render_start
             progress = (frame_num + 1) / result.total_frames
@@ -334,7 +245,6 @@ def main() -> None:
         else:
             frame = renderer.render_frame(entities, frame_num)
 
-        # Save to disk immediately
         frame_path = temp_frames_dir / f"frame_{frame_num:06d}.jpg"
         frame.convert('RGB').save(frame_path, "JPEG", quality=95)
         frame_paths.append(str(frame_path))
@@ -343,10 +253,12 @@ def main() -> None:
     print(f"Render done in {int(render_time // 60)}m {int(render_time % 60)}s")
 
     # ========================================
-    # AUDIO
+    # AUDIO (with spotlight sounds)
     # ========================================
 
     audio = None
+    audio_mode = audio_cfg.get('mode', 'default')
+
     if audio_cfg.get('enabled', True):
         print(f"\nBuilding audio (mode: {audio_mode})...")
 
@@ -354,7 +266,7 @@ def main() -> None:
             enabled=True,
             mode=audio_mode,
             sound_pack=audio_cfg.get('sound_pack', 'default'),
-            music_path=music_path,
+            music_path=audio_cfg.get('music_path'),
             elimination_volume=audio_cfg.get('volume', {}).get('elimination', 0.8),
             countdown_volume=audio_cfg.get('volume', {}).get('countdown', 1.0),
             winner_volume=audio_cfg.get('volume', {}).get('winner', 1.0),
@@ -363,11 +275,33 @@ def main() -> None:
             countdown_thresholds=tuple(audio_cfg.get('countdown_thresholds', [10, 5, 3]))
         )
 
+        # Collect spotlight sound frames
+        spotlight_tick_frames = []
+        spotlight_lock_frames = []
+        spotlight_tick_sound = None
+        spotlight_lock_sound = None
+
+        if spotlight_config.enabled and spotlight_config.sound.enabled:
+            from core.spotlight import SpotlightTracker
+            tracker = SpotlightTracker()
+            tracker.set_events(result.spotlight_events)
+            spotlight_tick_frames = tracker.get_sound_frames()
+            spotlight_lock_frames = tracker.get_lock_sound_frames()
+            spotlight_tick_sound = spotlight_config.sound.tick_sound
+            spotlight_lock_sound = spotlight_config.sound.lock_sound
+            print(f"  Spotlight sounds: {len(spotlight_tick_frames)} ticks, {len(spotlight_lock_frames)} locks")
+
         audio_builder = AudioBuilder(audio_config_obj, fps=fps)
+
+        # Build base audio
         audio = audio_builder.build(
             events=result.events,
             total_frames=result.total_frames,
-            winner_frame=winner_start_frame
+            winner_frame=winner_start_frame,
+            spotlight_tick_frames=spotlight_tick_frames,
+            spotlight_lock_frames=spotlight_lock_frames,
+            spotlight_tick_sound=spotlight_tick_sound,
+            spotlight_lock_sound=spotlight_lock_sound,
         )
 
         if audio:
@@ -392,10 +326,8 @@ def main() -> None:
     filename = f"{project.name}_{len(entities)}ent{seed_str}_{timestamp}.mp4"
     output_path = Path(out_cfg.get('directory', 'output')) / filename
 
-    # Create clip from saved frames
     clip = ImageSequenceClip(frame_paths, fps=fps)
 
-    # Add audio
     if audio and Path(audio).exists():
         audio_clip = AudioFileClip(str(audio))
         if audio_clip.duration > clip.duration:
@@ -419,8 +351,15 @@ def main() -> None:
     )
     clip.close()
 
-    # Clean up temp frames
-    shutil.rmtree(temp_frames_dir)
+    shutil.rmtree(temp_frames_dir, ignore_errors=True)
+
+    # Clean up temp audio
+    temp_audio = Path("output") / "_temp_audio.mp3"
+    if temp_audio.exists():
+        try:
+            temp_audio.unlink()
+        except Exception:
+            pass  # Windows might still have it locked
 
     export_time = time.time() - export_start
     total_time = render_time + export_time
@@ -432,8 +371,6 @@ def main() -> None:
     print(f"Render: {int(render_time // 60)}m {int(render_time % 60)}s")
     print(f"Export: {int(export_time // 60)}m {int(export_time % 60)}s")
     print(f"Total:  {int(total_time // 60)}m {int(total_time % 60)}s")
-    if seed:
-        print(f"\nTo replay exact simulation: set seed: {seed} in config.yaml")
     print()
 
 
