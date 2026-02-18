@@ -1,3 +1,5 @@
+"""Entity - a single contestant in the survival game."""
+
 from dataclasses import dataclass
 from typing import Optional
 from pathlib import Path
@@ -11,7 +13,7 @@ class Entity:
     color: str
     image_path: Optional[Path] = None
     alive: bool = True
-    eliminated_at: Optional[int] = None  # frame number when eliminated
+    eliminated_at: Optional[int] = None
 
     def eliminate(self, frame: int) -> None:
         """Mark this entity as eliminated."""

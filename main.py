@@ -1,8 +1,30 @@
+"""Main entry point for Survival Countdown."""
+
+import shutil
+import time
 import yaml
 from pathlib import Path
 from datetime import datetime
 
-from core import Project, Simulation, Renderer, Exporter
+from core import (
+    Project,
+    Simulation,
+    Renderer,
+    RenderConfig,
+    CanvasConfig,
+    LayoutConfig,
+    CounterDisplayConfig,
+    AnimationConfig,
+    EntityDisplayConfig,
+    AudioConfig,
+    FrameListScheduler,
+    ModernFadeAnimation,
+    RandomElimination,
+    ManualElimination,
+)
+from core.audio import BeatDetector, AudioBuilder
+from core.idle_animation import IdleAnimator, set_idle_animator
+from core.spotlight import SpotlightConfig
 
 
 def load_config(config_path: Path = Path("config.yaml")) -> dict:
@@ -13,28 +35,90 @@ def load_config(config_path: Path = Path("config.yaml")) -> dict:
     return {}
 
 
-def main():
-    # Load config
+def main() -> None:
     config = load_config()
     video_cfg = config.get('video', {})
     sim_cfg = config.get('simulation', {})
     vis_cfg = config.get('visuals', {})
     out_cfg = config.get('output', {})
+    audio_cfg = config.get('audio', {})
     sudden_death_cfg = sim_cfg.get('sudden_death', {})
+    spotlight_cfg = config.get('spotlight', {})
 
-    # Load project
     project_path = Path("assets/countries")
     project = Project(project_path)
     print(f"Loaded project: {project.name} ({len(project.entities)} entities)")
 
-    # Get entities
-    entity_count = sim_cfg.get('entity_count', 16)
-    if entity_count == "all":
-        entity_count = None
-    entities = project.get_entities(count=entity_count)
-    print(f"Using {len(entities)} entities")
+    # ========================================
+    # GET ENTITIES
+    # ========================================
 
-    # Create simulation
+    all_entities = project.get_entities(shuffle=False)
+
+    if sim_cfg.get('entity_ids'):
+        wanted_ids = sim_cfg.get('entity_ids')
+        entities = [e for e in all_entities if e.id in wanted_ids]
+        id_order = {id: i for i, id in enumerate(wanted_ids)}
+        entities.sort(key=lambda e: id_order.get(e.id, 999))
+        print(f"Using {len(entities)} specific entities by ID")
+
+    elif sim_cfg.get('entity_names'):
+        wanted_names = sim_cfg.get('entity_names')
+        entities = [e for e in all_entities if e.name in wanted_names]
+        name_order = {name: i for i, name in enumerate(wanted_names)}
+        entities.sort(key=lambda e: name_order.get(e.name, 999))
+        print(f"Using {len(entities)} specific entities by name")
+
+    else:
+        entity_count = sim_cfg.get('entity_count', 16)
+        if entity_count == "all":
+            entities = project.get_entities(shuffle=True)
+        else:
+            entities = project.get_entities(count=entity_count, shuffle=True)
+        print(f"Using {len(entities)} entities")
+
+    # ========================================
+    # ELIMINATION STRATEGY
+    # ========================================
+
+    elimination_mode = sim_cfg.get('elimination_mode', 'random')
+    elimination_strategy = None
+
+    if elimination_mode == 'manual':
+        elimination_order = sim_cfg.get('elimination_order', [])
+        if elimination_order:
+            use_names = sim_cfg.get('use_names_for_elimination', False)
+            elimination_strategy = ManualElimination(
+                order=elimination_order,
+                use_names=use_names
+            )
+            print(f"Using MANUAL elimination ({len(elimination_order)} predetermined)")
+        else:
+            print("WARNING: elimination_mode is 'manual' but elimination_order is empty!")
+
+    if elimination_strategy is None:
+        elimination_strategy = RandomElimination()
+
+    fps = video_cfg.get('fps', 60)
+    width = video_cfg.get('width', 1080)
+    height = video_cfg.get('height', 1920)
+
+    # ========================================
+    # SPOTLIGHT CONFIG
+    # ========================================
+
+    spotlight_config = SpotlightConfig.from_dict(spotlight_cfg)
+    if spotlight_config.enabled:
+        print(f"Spotlight: ENABLED")
+    else:
+        print(f"Spotlight: disabled")
+
+    # ========================================
+    # SIMULATION
+    # ========================================
+
+    print("\nRunning simulation...")
+
     simulation = Simulation(
         entities=entities,
         elimination_interval=sim_cfg.get('elimination_interval', 30),
@@ -43,59 +127,251 @@ def main():
         sudden_death_multiplier_1=sudden_death_cfg.get('multiplier_1', 2),
         sudden_death_threshold_2=sudden_death_cfg.get('threshold_2', 5),
         sudden_death_multiplier_2=sudden_death_cfg.get('multiplier_2', 4),
-        fps=video_cfg.get('fps', 60)
+        fps=fps,
+        elimination_strategy=elimination_strategy,
+        spotlight_config=spotlight_config,
     )
 
-    # Run simulation
-    print("Running simulation...")
-    result = simulation.run()
+    seed = sim_cfg.get('seed') if elimination_mode == 'random' else None
+    result = simulation.run(seed=seed)
+
     print(f"Winner: {result.winner.name}")
     print(f"Total eliminations: {len(result.events)}")
     print(f"Total frames: {result.total_frames}")
+    print(f"Duration: {result.total_frames / fps:.1f} seconds")
+    if spotlight_config.enabled:
+        print(f"Spotlight events: {len(result.spotlight_events)}")
 
-    # Create renderer
-    renderer = Renderer(
-        width=video_cfg.get('width', 1080),
-        height=video_cfg.get('height', 1920),
+    # ========================================
+    # RENDER CONFIG
+    # ========================================
+
+    set_idle_animator(IdleAnimator(
+        wave_speed=vis_cfg.get('idle_wave_speed', 0.08),
+        wave_amount=vis_cfg.get('idle_wave_amount', 4.0),
+        breathe_speed=vis_cfg.get('idle_breathe_speed', 0.04),
+        breathe_amount=vis_cfg.get('idle_breathe_amount', 0.03)
+    ))
+
+    canvas_config = CanvasConfig(
+        width=width,
+        height=height,
         background_color=vis_cfg.get('background_color', '#1a1a2e'),
-        cell_padding=vis_cfg.get('cell_padding', 10),
-        show_counter=vis_cfg.get('show_counter', True),
-        counter_position=vis_cfg.get('counter_position', 'top')
+        gradient_enabled=vis_cfg.get('gradient_enabled', True),
+        gradient_top=vis_cfg.get('gradient_top', '#1e1e2e'),
+        gradient_bottom=vis_cfg.get('gradient_bottom', '#0a0a12'),
+        animated_gradient=vis_cfg.get('animated_gradient', True),
+        gradient_top_end=vis_cfg.get('gradient_top_end', '#2e1a3e'),
+        gradient_bottom_end=vis_cfg.get('gradient_bottom_end', '#0a1a1f'),
+        gradient_cycle_speed=vis_cfg.get('gradient_cycle_speed', 2.0),
+        vignette_enabled=vis_cfg.get('vignette_enabled', True),
+        vignette_strength=vis_cfg.get('vignette_strength', 0.4),
+        greenscreen=vis_cfg.get('greenscreen', False),
+        transparent=vis_cfg.get('transparent', False)
     )
 
-    # Render all frames
-    print(f"Rendering {result.total_frames} frames...")
-    frames = []
+    animation_config = AnimationConfig(
+        elimination_duration=int(fps * 0.5),
+        flash_on_elimination=vis_cfg.get('flash_on_elimination', False),
+        idle_enabled=vis_cfg.get('idle_enabled', True)
+    )
 
-    # Build elimination lookup for quick access
-    elim_frames = {e.frame: e for e in result.events}
-    winner_start_frame = result.total_frames - simulation.winner_celebration_frames
+    entity_config = EntityDisplayConfig(
+        corner_radius=vis_cfg.get('corner_radius', 12),
+        shadow_enabled=vis_cfg.get('shadow_enabled', True),
+        shadow_blur=vis_cfg.get('shadow_blur', 10),
+        shadow_opacity=vis_cfg.get('shadow_opacity', 100)
+    )
 
+    render_config = RenderConfig(
+        canvas=canvas_config,
+        layout=LayoutConfig(
+            cell_padding=vis_cfg.get('cell_padding', 10)
+        ),
+        counter=CounterDisplayConfig(
+            enabled=vis_cfg.get('show_counter', True),
+            position=vis_cfg.get('counter_position', 'top'),
+            format_string=vis_cfg.get('counter_format', '{count}'),
+            pulse_on_elimination=True,
+            pulse_scale=1.3
+        ),
+        animation=animation_config,
+        entity=entity_config
+    )
+
+    modern_animation = ModernFadeAnimation(
+        animation_config,
+        corner_radius=entity_config.corner_radius
+    )
+
+    renderer = Renderer(
+        render_config,
+        total_frames=result.total_frames,
+        elimination_animation=modern_animation,
+        spotlight_visual_config=spotlight_config.visual if spotlight_config.enabled else None,
+    )
+    renderer.set_eliminations(result.events)
+
+    if spotlight_config.enabled and result.spotlight_events:
+        renderer.set_spotlight_events(result.spotlight_events)
+
+    # ========================================
+    # RENDER FRAMES
+    # ========================================
+
+    print(f"\nRendering {result.total_frames} frames at {width}x{height} {fps}fps...")
+    render_start = time.time()
+
+    temp_frames_dir = Path(out_cfg.get('directory', 'output')) / "_temp_frames"
+    if temp_frames_dir.exists():
+        shutil.rmtree(temp_frames_dir)
+    temp_frames_dir.mkdir(parents=True)
+
+    animation_buffer = int(fps * 0.5)
+    winner_start_frame = result.total_frames - simulation.winner_celebration_frames + animation_buffer
+
+    frame_paths = []
     for frame_num in range(result.total_frames):
         if frame_num % 60 == 0:
-            print(f"  Frame {frame_num}/{result.total_frames}")
+            elapsed = time.time() - render_start
+            progress = (frame_num + 1) / result.total_frames
+            if progress > 0.01:
+                remaining = (elapsed / progress) - elapsed
+                print(f"  Frame {frame_num}/{result.total_frames} | "
+                      f"Elapsed: {int(elapsed)}s | Remaining: ~{int(remaining)}s")
 
         if frame_num >= winner_start_frame:
-            # Winner celebration
-            frame = renderer.render_winner_frame(result.winner)
+            frame = renderer.render_winner_frame(result.winner, frame_num)
         else:
-            # Normal game frame
             frame = renderer.render_frame(entities, frame_num)
 
-        frames.append(frame)
+        frame_path = temp_frames_dir / f"frame_{frame_num:06d}.jpg"
+        frame.convert('RGB').save(frame_path, "JPEG", quality=95)
+        frame_paths.append(str(frame_path))
 
-    # Export video
-    print("Exporting video...")
-    exporter = Exporter(
-        fps=video_cfg.get('fps', 60),
-        output_dir=Path(out_cfg.get('directory', 'output'))
-    )
+    render_time = time.time() - render_start
+    print(f"Render done in {int(render_time // 60)}m {int(render_time % 60)}s")
+
+    # ========================================
+    # AUDIO (with spotlight sounds)
+    # ========================================
+
+    audio = None
+    audio_mode = audio_cfg.get('mode', 'default')
+
+    if audio_cfg.get('enabled', True):
+        print(f"\nBuilding audio (mode: {audio_mode})...")
+
+        audio_config_obj = AudioConfig(
+            enabled=True,
+            mode=audio_mode,
+            sound_pack=audio_cfg.get('sound_pack', 'default'),
+            music_path=audio_cfg.get('music_path'),
+            elimination_volume=audio_cfg.get('volume', {}).get('elimination', 0.8),
+            countdown_volume=audio_cfg.get('volume', {}).get('countdown', 1.0),
+            winner_volume=audio_cfg.get('volume', {}).get('winner', 1.0),
+            music_volume=audio_cfg.get('volume', {}).get('music', 0.4),
+            countdown_enabled=audio_cfg.get('countdown_enabled', False),
+            countdown_thresholds=tuple(audio_cfg.get('countdown_thresholds', [10, 5, 3]))
+        )
+
+        # Collect spotlight sound frames
+        spotlight_tick_frames = []
+        spotlight_lock_frames = []
+        spotlight_tick_sound = None
+        spotlight_lock_sound = None
+
+        if spotlight_config.enabled and spotlight_config.sound.enabled:
+            from core.spotlight import SpotlightTracker
+            tracker = SpotlightTracker()
+            tracker.set_events(result.spotlight_events)
+            spotlight_tick_frames = tracker.get_sound_frames()
+            spotlight_lock_frames = tracker.get_lock_sound_frames()
+            spotlight_tick_sound = spotlight_config.sound.tick_sound
+            spotlight_lock_sound = spotlight_config.sound.lock_sound
+            print(f"  Spotlight sounds: {len(spotlight_tick_frames)} ticks, {len(spotlight_lock_frames)} locks")
+
+        audio_builder = AudioBuilder(audio_config_obj, fps=fps)
+
+        # Build base audio
+        audio = audio_builder.build(
+            events=result.events,
+            total_frames=result.total_frames,
+            winner_frame=winner_start_frame,
+            spotlight_tick_frames=spotlight_tick_frames,
+            spotlight_lock_frames=spotlight_lock_frames,
+            spotlight_tick_sound=spotlight_tick_sound,
+            spotlight_lock_sound=spotlight_lock_sound,
+        )
+
+        if audio:
+            print("  Audio track created")
+        else:
+            print("  No sounds found, video will be silent")
+
+    # ========================================
+    # EXPORT
+    # ========================================
+
+    print("\nExporting video...")
+    export_start = time.time()
+
+    try:
+        from moviepy import ImageSequenceClip, AudioFileClip
+    except ImportError:
+        from moviepy.editor import ImageSequenceClip, AudioFileClip
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{project.name}_{timestamp}"
+    seed_str = f"_seed{seed}" if seed else ""
+    filename = f"{project.name}_{len(entities)}ent{seed_str}_{timestamp}.mp4"
+    output_path = Path(out_cfg.get('directory', 'output')) / filename
 
-    output_path = exporter.export(frames, filename)
-    print(f"Done! Video saved to: {output_path}")
+    clip = ImageSequenceClip(frame_paths, fps=fps)
+
+    if audio and Path(audio).exists():
+        audio_clip = AudioFileClip(str(audio))
+        if audio_clip.duration > clip.duration:
+            try:
+                audio_clip = audio_clip.subclipped(0, clip.duration)
+            except AttributeError:
+                audio_clip = audio_clip.subclip(0, clip.duration)
+        try:
+            clip = clip.with_audio(audio_clip)
+        except AttributeError:
+            clip = clip.set_audio(audio_clip)
+
+    clip.write_videofile(
+        str(output_path),
+        codec='libx264',
+        audio_codec='aac' if audio else None,
+        fps=fps,
+        preset='fast',
+        threads=4,
+        logger='bar'
+    )
+    clip.close()
+
+    shutil.rmtree(temp_frames_dir, ignore_errors=True)
+
+    # Clean up temp audio
+    temp_audio = Path("output") / "_temp_audio.mp3"
+    if temp_audio.exists():
+        try:
+            temp_audio.unlink()
+        except Exception:
+            pass  # Windows might still have it locked
+
+    export_time = time.time() - export_start
+    total_time = render_time + export_time
+
+    print()
+    print("=" * 50)
+    print(f"DONE: {output_path}")
+    print("=" * 50)
+    print(f"Render: {int(render_time // 60)}m {int(render_time % 60)}s")
+    print(f"Export: {int(export_time // 60)}m {int(export_time % 60)}s")
+    print(f"Total:  {int(total_time // 60)}m {int(total_time % 60)}s")
+    print()
 
 
 if __name__ == "__main__":

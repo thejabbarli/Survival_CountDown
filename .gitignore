@@ -1,0 +1,45 @@
+# Byte-compiled
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+.venv/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Output files
+output/
+*.mp4
+
+# Audio files
+sounds/music/
+sounds/midi/
+*.mp3
+*.wav
+*.ogg
+*.mid
+
+# Beat files
+beats/
+
+# Assets (large files)
+assets/*/
+!assets/fonts/
+
+# Keep folder structure
+!assets/.gitkeep
+!sounds/music/.gitkeep
+!sounds/midi/.gitkeep
+!sounds/packs/
+!beats/.gitkeep
+!output/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db

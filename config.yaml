@@ -1,13 +1,35 @@
-# Video settings
-video:
-  width: 1080
-  height: 1920
-  fps: 60
+# ============================================
+# SURVIVAL COUNTDOWN - FINAL CONFIG
+# ============================================
 
-# Simulation settings
+video:
+  width: 1080       # 480 for preview, 1080 for production
+  height: 1920      # 854 for preview, 1920 for production
+  fps: 60          # 30 for preview, 60 for production
+
 simulation:
-  entity_count: 16  # Use "all" for all entities in project
-  elimination_interval: 30  # frames between eliminations
+  entity_count: 25
+  entity_ids: [
+    "us", "id", "br", "mx", "vn",
+    "ph", "ru", "th", "pk", "gb",
+    "fr", "de", "jp", "it", "sa",
+    "eg", "es", "pl", "my", "co",
+    "kr", "ar", "tr", "in", "gr"
+  ]
+
+  elimination_mode: manual
+  elimination_order: [
+    "pl", "co", "my", "eg", "sa",
+    "it", "es", "kr", "ar", "vn",
+    "th", "de", "fr", "gb", "jp",
+    "mx", "ph", "pk", "ru", "br",
+    "id", "us", "gr", "in", "tr"
+  ]
+  use_names_for_elimination: false
+
+  seed: 40
+  elimination_interval: 30
+
   sudden_death:
     enabled: true
     threshold_1: 10
@@ -15,14 +37,84 @@ simulation:
     threshold_2: 5
     multiplier_2: 4
 
-# Visual settings
 visuals:
-  background_color: "#1a1a2e"
+  gradient_enabled: true
+  animated_gradient: true
+  gradient_top: "#1e1e2e"
+  gradient_bottom: "#0a0a12"
+  gradient_top_end: "#2e1a3e"
+  gradient_bottom_end: "#0a1a1f"
+  gradient_cycle_speed: 2.0
+  vignette_enabled: true
+  vignette_strength: 0.4
+  corner_radius: 12
+  shadow_enabled: true
+  shadow_blur: 10
+  shadow_opacity: 100
   cell_padding: 10
+  idle_enabled: true
+  idle_wave_speed: 0.08
+  idle_wave_amount: 4.0
+  idle_breathe_speed: 0.04
+  idle_breathe_amount: 0.03
   show_counter: true
-  counter_position: top  # top or bottom
+  counter_position: top
+  counter_format: "{count}"
+  greenscreen: false
+  transparent: false
 
-# Output settings
+# Spotlight - slot machine with deceleration
+spotlight:
+  enabled: true
+
+  visual:
+    dim_opacity: 0.5          # Non-spotlit entities quite dim
+    active_scale: 1.12        # Nice pop when spotlit
+    locked_scale: 1.15        # Bigger when locked on victim
+    glow_enabled: true        # Draws clean border
+    glow_radius: 15           # Not used (border instead)
+    glow_color: "#FFFFFF"     # White border
+    glow_opacity: 255
+
+  sound:
+    enabled: true             # Enable for tick sounds
+    tick_sound: "tick.wav"
+    lock_sound: ""
+
+  phases:
+    # CHAOS: Quick scan, half rotation
+    # Game progress multiplier makes later eliminations slower
+    chaos:
+      until_remaining_percent: 60
+      decoy_count: [3, 6]
+      frames_per_stop: [2, 4]    # Fast: 2-4 frames per entity
+      lock_frames: 3
+
+    # GRIND: Full rotation, medium speed
+    grind:
+      until_remaining_percent: 20
+      decoy_count: [5, 10]
+      frames_per_stop: [3, 8]    # Medium: 3-8 frames, decelerates
+      lock_frames: 5
+
+    # DUEL: Multiple rotations, slow & dramatic
+    duel:
+      until_remaining_percent: 0
+      decoy_count: [10, 20]
+      frames_per_stop: [5, 15]   # Slow: 5-15 frames, big deceleration
+      lock_frames: 10
+
+# Audio - elimination + spotlight sounds
+audio:
+  enabled: true
+  mode: default
+  sound_pack: default
+  countdown_enabled: false
+  volume:
+    elimination: 0.8
+    countdown: 1.0
+    winner: 0.0
+    music: 0.0
+
 output:
   directory: output
-  filename_pattern: "{project}_{timestamp}"
